@@ -1,0 +1,2823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AnimeDrive — Anime &amp; manga bot for Telegram</title>
+<meta name="description" content="AnimeDrive is a Telegram bot for anime and manga fans: episodes, manga chapters as PDF, airing schedules, filler guides and screenshot lookups — all from one chat.">
+<meta name="theme-color" content="#0e0a16">
+
+<!-- Social previews. TODO: once the site has a domain, make og:image / twitter:image absolute
+     (e.g. https://example.com/og-image.png) and add og:url + <link rel="canonical">. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AnimeDrive">
+<meta property="og:title" content="AnimeDrive — Anime &amp; manga bot for Telegram">
+<meta property="og:description" content="Manga chapters as PDF, airing schedules, filler guides and screenshot lookups, all from one Telegram chat. Free, no sign-up.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AnimeDrive pixel-art banner: the Bloub mascot on a neon grid under a night city skyline, with the handle @animedrive_bot.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AnimeDrive — Anime &amp; manga bot for Telegram">
+<meta name="twitter:description" content="Manga chapters as PDF, airing schedules, filler guides and screenshot lookups, all from one Telegram chat.">
+<meta name="twitter:image" content="og-image.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AnimeDrive",
+  "applicationCategory": "EntertainmentApplication",
+  "operatingSystem": "Telegram",
+  "url": "https://t.me/animedrive_bot",
+  "description": "Telegram bot for anime and manga fans: manga chapters as PDF, airing schedules, filler guides and screenshot lookups.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<!-- Keep in sync with the Quest log (#faq) section. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Is AnimeDrive free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every command is free to use, and there's no premium tier." } },
+    { "@type": "Question", "name": "Why does the bot ask me to join channels?", "acceptedAnswer": { "@type": "Answer", "text": "To use AnimeDrive you need to join two channels first. The bot shows a Join button for each one. Join both, tap Try Again, and you're in." } },
+    { "@type": "Question", "name": "Do I need to sign up?", "acceptedAnswer": { "@type": "Answer", "text": "No. Your Telegram account is all you need. Open @animedrive_bot and send /start." } },
+    { "@type": "Question", "name": "What does the bot store about me?", "acceptedAnswer": { "@type": "Answer", "text": "What Telegram shares with every bot: your Telegram ID, name and username. It also keeps when you joined, when you were last active, and which commands you use. If you link AniList, it saves your AniList username, and notes you save with /note are kept so you can read them later." } },
+    { "@type": "Question", "name": "Something failed or the bot didn't answer.", "acceptedAnswer": { "@type": "Answer", "text": "Wait a minute and try again, or pick another option from the menu. If it keeps happening, tell us with /request." } },
+    { "@type": "Question", "name": "Where's the full command list?", "acceptedAnswer": { "@type": "Answer", "text": "Send /help in the bot, or browse the command deck on this page." } }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<!-- One font request. DotGothic16 is served in unicode-range slices, so only used glyphs download. -->
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=DotGothic16&display=swap" rel="stylesheet">
+<!-- deferred: they still run before the module script below (document order) -->
+<script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js" } }
+</script>
+<!-- Fetch Three.js in parallel; the page script imports it lazily so the rest of the page never waits on it. -->
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js">
+<style>
+  :root {
+    --night-950: #0b0812;
+    --night-900: #0e0a16;
+    --night-800: #140f1f;
+    --night-700: #1d1630;
+    --night-600: #2a2040;
+    --plum: #423658;
+    --plum-400: #5a4a78;
+    --plum-300: #8a7aa8;
+    --coral: #DD5A6D;
+    --coral-300: #f08a98;
+    --coral-700: #a83a4c;
+    --success: #5cb88a;
+    --warning: #e5a84b;
+    --danger: #d94f4f;
+    --info: #7b8ec2;
+    --ink: #f3eef8;
+    --ink-dim: #c4b8d6;
+    --ink-mute: #9a8db0;
+
+    --font-px: 'Silkscreen', ui-monospace, monospace;
+    --font-ui: 'Sora', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    --gutter: max(16px, 6vw);
+    --nav-h: 64px;
+    --dither: none;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--night-800);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  img, canvas { display: block; }
+  a { color: inherit; }
+  p, h1, h2, h3 { text-wrap: pretty; }
+  ::selection { background: var(--coral); color: var(--night-950); }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .skip {
+    position: absolute; left: 16px; top: -60px; z-index: 100;
+    background: var(--warning); color: var(--night-950);
+    font-family: var(--font-px); padding: 10px 14px; text-decoration: none;
+  }
+  .skip:focus { top: 12px; }
+
+  /* ---------- pixel primitives ---------- */
+  .px-box {
+    --c: var(--plum-400);
+    --shadow: rgba(5, 3, 10, .55);
+    box-shadow:
+      0 -4px 0 0 var(--c), 0 4px 0 0 var(--c),
+      -4px 0 0 0 var(--c), 4px 0 0 0 var(--c),
+      8px 8px 0 0 var(--shadow), 4px 12px 0 0 var(--shadow), 12px 4px 0 0 var(--shadow);
+  }
+  .pixelated { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+  .btn {
+    --bg: var(--coral); --fg: var(--night-950); --edge: var(--coral-700); --depth: var(--coral-700);
+    position: relative;
+    display: inline-flex; align-items: center; gap: 12px;
+    min-height: 48px; padding: 12px 22px;
+    font: 700 15px/1 var(--font-px); letter-spacing: .04em; text-transform: uppercase;
+    color: var(--fg); background: var(--bg); text-decoration: none;
+    border: 0; cursor: pointer;
+    box-shadow:
+      0 -4px 0 0 var(--edge), 0 4px 0 0 var(--edge),
+      -4px 0 0 0 var(--edge), 4px 0 0 0 var(--edge),
+      0 10px 0 0 var(--depth), 4px 8px 0 0 var(--depth), -4px 8px 0 0 var(--depth);
+    transition: transform .08s steps(2), background-color .12s steps(2);
+    user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { background: var(--coral-300); }
+  .btn:active { transform: translateY(6px); box-shadow:
+      0 -4px 0 0 var(--edge), 0 4px 0 0 var(--edge),
+      -4px 0 0 0 var(--edge), 4px 0 0 0 var(--edge); }
+  .btn:focus-visible, .link:focus-visible, .icon-btn:focus-visible, .nav a:focus-visible, .chip-link:focus-visible {
+    outline: 3px solid var(--warning); outline-offset: 8px;
+  }
+  .btn--ghost {
+    --bg: var(--night-800); --fg: var(--ink); --edge: var(--plum-300); --depth: var(--night-950);
+  }
+  .btn--ghost:hover { background: var(--night-700); }
+  .btn--sm { min-height: 40px; padding: 8px 14px; font-size: 13px; }
+  .btn .arrow { display: inline-block; width: 12px; height: 12px; background: currentColor;
+    clip-path: polygon(0 0, 50% 0, 50% 25%, 75% 25%, 75% 50%, 100% 50%, 100% 50%, 75% 50%, 75% 75%, 50% 75%, 50% 100%, 0 100%, 0 75%, 25% 75%, 25% 25%, 0 25%); }
+  .btn .tri { width: 0; height: 0; border-left: 10px solid currentColor; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+
+  .kbd {
+    display: inline-block; padding: 2px 6px; margin: 0 2px;
+    font: 700 11px/1.4 var(--font-px); color: var(--ink);
+    background: var(--night-700);
+    box-shadow: 0 -2px 0 0 var(--plum-300), 0 2px 0 0 var(--plum-300), -2px 0 0 0 var(--plum-300), 2px 0 0 0 var(--plum-300), 0 5px 0 0 var(--night-950);
+  }
+
+  @keyframes blink { 0%, 55% { opacity: 1; } 56%, 100% { opacity: 0; } }
+  @keyframes flicker { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .55; } 96% { opacity: .85; } }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: fixed; inset: 0 0 auto 0; z-index: 20; height: var(--nav-h);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 0 var(--gutter);
+    transition: background-color .2s steps(3), box-shadow .2s steps(3);
+  }
+  .nav.is-solid { background: var(--night-900); box-shadow: 0 4px 0 0 var(--plum); }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 16px/1 var(--font-px); letter-spacing: .06em; }
+  .brand canvas { width: 32px; height: 32px; }
+  .brand b { color: var(--coral); font-weight: 700; }
+  .nav-links { display: flex; gap: 28px; list-style: none; margin: 0; padding: 0; }
+  .nav-links a { font: 400 13px/1 var(--font-px); color: var(--ink-dim); text-decoration: none; letter-spacing: .06em; padding: 8px 0; }
+  .nav-links a:hover { color: var(--ink); }
+  .xp {
+    position: fixed; left: 0; right: 0; top: var(--nav-h); height: 4px; z-index: 19;
+    background: var(--coral); transform-origin: 0 50%; transform: scaleX(0);
+    pointer-events: none;
+  }
+  @media (max-width: 760px) { .nav-links { display: none; } }
+
+  /* ---------- hero / game ---------- */
+  .hero {
+    position: relative; height: 100vh; height: 100svh; min-height: 560px;
+    overflow: hidden; background: var(--night-900);
+    touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .hero.no-webgl {
+    background:
+      linear-gradient(to bottom, transparent 70%, var(--night-700) 70% 72%, var(--night-600) 72%),
+      linear-gradient(to bottom, #06040b 0%, var(--night-700) 45%, var(--plum) 62%, #8f4863 69%, var(--night-600) 70%);
+  }
+  #world { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+  .scan {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      repeating-linear-gradient(to bottom, rgba(5,3,10,.16) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(5,3,10,.55) 100%);
+  }
+  .dither-edge {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 64px; z-index: 1; pointer-events: none;
+    background-image: var(--dither); background-size: 128px 64px; background-repeat: repeat-x;
+    image-rendering: pixelated;
+  }
+
+  .hero-copy {
+    position: absolute; z-index: 2;
+    left: var(--gutter); top: calc(var(--nav-h) + 5vh);
+    max-width: min(640px, calc(100vw - 32px));
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font: 700 13px/1 var(--font-px); letter-spacing: .12em; color: var(--coral-300);
+    margin: 0 0 18px;
+  }
+  .eyebrow::before { content: ""; width: 8px; height: 8px; background: var(--success); animation: blink 1.2s steps(1) infinite; }
+  .title {
+    margin: 0;
+    font: 700 clamp(44px, 10.5vw, 140px)/.88 var(--font-px);
+    letter-spacing: -.01em;
+    color: var(--ink);
+    text-shadow: 4px 4px 0 var(--coral-700), 8px 8px 0 var(--night-950);
+  }
+  .title .l2 { display: block; color: var(--coral); text-shadow: 4px 4px 0 var(--plum), 8px 8px 0 var(--night-950); animation: flicker 5s steps(1) infinite; }
+  .title .ch { display: inline-block; }
+  .tagline {
+    margin: 26px 0 30px; max-width: 34ch;
+    font-size: clamp(16px, 1.6vw, 20px); line-height: 1.55; color: var(--ink-dim);
+    text-shadow: 0 2px 0 var(--night-950);
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 22px 26px; align-items: center; }
+  .hint { margin: 30px 0 0; font: 400 12px/2 var(--font-px); color: var(--ink-mute); letter-spacing: .04em; }
+  .hint .touch { display: none; }
+  @media (hover: none) { .hint .keys { display: none; } .hint .touch { display: inline; } }
+
+  .press {
+    position: absolute; z-index: 2; left: 50%; bottom: 16%;
+    transform: translateX(-50%);
+    font: 700 14px/1 var(--font-px); letter-spacing: .1em; color: var(--ink);
+    text-shadow: 3px 3px 0 var(--night-950);
+    white-space: nowrap; pointer-events: none;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  .press .touch { display: none; }
+  @media (hover: none) { .press .keys { display: none; } .press .touch { display: inline; } }
+  @media (max-width: 760px) { .press { bottom: 9%; font-size: 12px; } }
+
+  .hud {
+    position: absolute; z-index: 3; top: calc(var(--nav-h) + 16px);
+    left: var(--gutter); right: var(--gutter);
+    display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 14px 20px;
+    font: 700 14px/1 var(--font-px); letter-spacing: .06em;
+    text-shadow: 2px 2px 0 var(--night-950);
+    pointer-events: none;
+  }
+  .hud-stat { display: grid; gap: 10px; }
+  .hud-label { font-size: 11px; color: var(--ink-mute); }
+  .hud-score { font-size: 22px; color: var(--ink); }
+  .hearts { display: flex; gap: 6px; }
+  .hearts canvas { width: 28px; height: 24px; }
+  .slots { display: flex; gap: 6px; padding-top: 2px; }
+  .slots canvas { width: 26px; height: 26px; transition: opacity .2s steps(2); }
+  .slots canvas.off { opacity: .35; filter: grayscale(1); }
+  .hud-right { display: flex; gap: 14px; align-items: flex-start; }
+  .icon-btn {
+    pointer-events: auto;
+    min-width: 44px; height: 40px; padding: 0 10px;
+    font: 700 12px/1 var(--font-px); color: var(--ink); letter-spacing: .06em;
+    background: var(--night-800); border: 0; cursor: pointer;
+    box-shadow: 0 -3px 0 0 var(--plum-300), 0 3px 0 0 var(--plum-300), -3px 0 0 0 var(--plum-300), 3px 0 0 0 var(--plum-300);
+  }
+  .icon-btn:hover { background: var(--night-700); }
+  @media (max-width: 760px) {
+    .hud { font-size: 12px; }
+    .hud-score { font-size: 18px; }
+    .slots { order: 3; width: 100%; justify-content: flex-start; }
+    .slots canvas { width: 22px; height: 22px; }
+  }
+
+  .toast {
+    position: absolute; z-index: 4; left: 50%; top: 34%;
+    transform: translateX(-50%);
+    min-width: min(420px, calc(100vw - 48px));
+    padding: 16px 22px;
+    text-align: center; pointer-events: none;
+    background: var(--night-800);
+  }
+  .toast .t1 { font: 700 clamp(18px, 2.4vw, 26px)/1.1 var(--font-px); letter-spacing: .04em; color: var(--toast, var(--ink)); }
+  .toast .t2 { margin-top: 8px; font-size: 14px; line-height: 1.45; color: var(--ink-dim); }
+  .toast:empty { display: none; }
+
+  .overlay {
+    position: absolute; inset: 0; z-index: 5;
+    display: grid; place-items: center; padding: 24px;
+    background: rgba(11, 8, 18, .6);
+  }
+  .overlay[hidden] { display: none; }
+  .panel {
+    --c: var(--plum-300);
+    width: min(440px, 100%);
+    padding: 32px 28px 34px;
+    background: var(--night-800); text-align: center;
+  }
+  .panel h2 { margin: 0 0 18px; font: 700 clamp(28px, 4vw, 40px)/1 var(--font-px); color: var(--danger); text-shadow: 3px 3px 0 var(--night-950); }
+  .panel h2.paused { color: var(--warning); }
+  .panel .reason { margin: 0 0 22px; color: var(--ink-dim); font-size: 15px; }
+  .panel dl { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 0 0 28px; }
+  .panel dt { font: 400 11px/1 var(--font-px); color: var(--ink-mute); margin-bottom: 8px; }
+  .panel dd { margin: 0; font: 700 18px/1 var(--font-px); }
+  .panel .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 24px; }
+
+  .webgl-note { position: absolute; z-index: 2; left: var(--gutter); bottom: 90px; font: 400 12px/1.6 var(--font-px); color: var(--ink-mute); }
+
+  /* ---------- sections ---------- */
+  .section { position: relative; padding: clamp(80px, 12vw, 150px) var(--gutter); overflow: hidden; overflow: clip; }
+  .wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; }
+
+  /* ---------- section atmospheres (textures generated in JS) ---------- */
+  .bg-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  .tone {
+    background-image: var(--tone, none); background-size: 32px 32px; image-rendering: pixelated;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 45%, transparent 75%, #000 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, #000 45%, transparent 75%, #000 100%);
+    opacity: .55;
+  }
+  .speed {
+    background: var(--speed, none) center / cover no-repeat; image-rendering: pixelated;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 50%, transparent 18%, #000 62%);
+            mask-image: radial-gradient(ellipse at 50% 50%, transparent 18%, #000 62%);
+  }
+  .ghost {
+    position: absolute; left: 0; top: 4%; z-index: 0;
+    font: 400 clamp(120px, 22vw, 340px)/1 'DotGothic16', var(--font-px);
+    color: transparent; -webkit-text-stroke: 2px var(--night-600);
+    white-space: nowrap; pointer-events: none; user-select: none;
+  }
+  .ghost--low { top: auto; bottom: 2%; }
+  .spark {
+    position: absolute; width: 4px; height: 4px; color: var(--ink); background: currentColor;
+    box-shadow: 4px 0 0 currentColor, -4px 0 0 currentColor, 0 4px 0 currentColor, 0 -4px 0 currentColor;
+    animation: twinkle 2.4s steps(1) infinite;
+  }
+  .spark.sm { box-shadow: none; }
+  @keyframes twinkle { 0%, 60% { opacity: .9; } 61%, 78% { opacity: .25; } 79%, 100% { opacity: 0; } }
+  .floor {
+    position: absolute; left: -50%; right: -50%; bottom: -12%; height: 62%;
+    transform-origin: 50% 0; transform: perspective(420px) rotateX(64deg);
+    background-image:
+      linear-gradient(var(--coral-700) 4px, transparent 4px),
+      linear-gradient(90deg, var(--coral-700) 4px, transparent 4px);
+    background-size: 72px 72px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 45%);
+            mask-image: linear-gradient(to bottom, transparent, #000 45%);
+    opacity: .45;
+    animation: floor 1.2s steps(6) infinite;
+  }
+  @keyframes floor { to { background-position: 0 72px, 0 0; } }
+  .continue > :not(.bg-layer):not(.ghost):not(.noren):not(.wind):not(.airship):not(.fighter):not(.bolt) { position: relative; z-index: 1; }
+
+  /* ---------- Japanese touches ---------- */
+  .jp-sub { margin: 14px 0 0; font: 400 clamp(15px, 1.6vw, 20px)/1.4 'DotGothic16', var(--font-px); letter-spacing: .12em; color: var(--coral-300); }
+  .jp-sub--sm { margin: 4px 0 10px; font-size: 14px; color: var(--ink-mute); }
+  .continue .jp-sub { margin-top: 10px; color: var(--ink-dim); }
+  .jp-tag { margin-left: 4px; font-family: 'DotGothic16', var(--font-px); letter-spacing: .1em; color: var(--coral-300); }
+  .vlabel {
+    position: absolute; right: 18px; top: clamp(80px, 12vw, 150px); z-index: 1;
+    writing-mode: vertical-rl; text-orientation: upright;
+    display: flex; align-items: center; gap: 14px;
+    font: 400 15px/1 'DotGothic16', var(--font-px); letter-spacing: .3em; color: var(--ink-mute);
+    pointer-events: none;
+  }
+  .vlabel i { width: 4px; height: 40px; background: var(--coral); }
+  @media (max-width: 1100px) { .vlabel { display: none; } }
+
+  /* noren curtain hanging over the arcade: ゲーセン ("game centre") */
+  .continue { padding-top: clamp(210px, 22vw, 280px); }
+  .airship { position: absolute; top: 36%; right: 6%; z-index: 0; display: flex; align-items: center; pointer-events: none; }
+  .airship canvas { width: clamp(112px, 14vw, 168px); height: auto; image-rendering: pixelated; }
+  .airship .banner {
+    position: relative; margin-left: 22px; padding: 6px 10px 5px;
+    font: 700 clamp(11px, 1.1vw, 14px)/1 var(--font-px); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+    color: var(--night-950); background: var(--ink-dim);
+    box-shadow: 4px 0 0 0 var(--coral), 4px 4px 0 0 var(--night-950);
+    transform-origin: 0 50%;
+  }
+  .airship .banner::before { content: ''; position: absolute; right: 100%; top: 50%; width: 22px; height: 2px; background: var(--ink-mute); }
+  .fighter { position: absolute; left: 50%; bottom: 4%; z-index: 0; transform: translateX(-160%); pointer-events: none; }
+  .fighter canvas { display: block; width: clamp(96px, 10vw, 144px); height: auto; image-rendering: pixelated; }
+  .bolt { position: absolute; left: 0; top: 0; z-index: 0; width: 4px; height: 14px; background: var(--coral); box-shadow: 0 0 0 2px var(--coral-700); pointer-events: none; opacity: 0; }
+  .wind { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+  .gust { position: absolute; left: 0; height: 3px; background: var(--ink-dim); opacity: 0; }
+  .gust.petal { width: 6px; height: 6px; background: var(--coral-300); }
+  .noren {
+    position: absolute; top: 58px; left: 50%; z-index: 1; transform: translateX(-50%);
+    display: flex; gap: 6px; width: min(560px, calc(100% - 32px)); padding-top: 8px;
+  }
+  .noren::before { content: ''; position: absolute; left: -16px; right: -16px; top: 0; height: 8px; background: var(--warning); box-shadow: 0 4px 0 0 var(--coral-700); }
+  .noren span {
+    flex: 1; height: clamp(96px, 12vw, 130px); padding-top: 14px; transform-origin: 50% 0;
+    display: flex; justify-content: center; align-items: flex-start;
+    font: 400 clamp(32px, 5vw, 52px)/1 'DotGothic16', var(--font-px); color: var(--ink);
+    background: var(--plum);
+    box-shadow: inset 0 -8px 0 0 var(--plum-400), inset 0 -12px 0 0 var(--coral);
+  }
+
+  /* ---------- quest log: FAQ + achievements ---------- */
+  .quest { background: var(--night-900); }
+  .quest-grid {
+    background-image:
+      linear-gradient(var(--night-800) 2px, transparent 2px),
+      linear-gradient(90deg, var(--night-800) 2px, transparent 2px);
+    background-size: 48px 48px;
+    -webkit-mask-image: linear-gradient(to bottom, #000, transparent 85%);
+            mask-image: linear-gradient(to bottom, #000, transparent 85%);
+  }
+  .quest-grid-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: clamp(40px, 5vw, 72px); align-items: start; margin-top: 56px; }
+  @media (max-width: 900px) { .quest-grid-layout { grid-template-columns: minmax(0, 1fr); } }
+  .faq { display: grid; gap: 22px; }
+  .q { --c: var(--night-600); background: var(--night-800); }
+  .q[open] { --c: var(--plum-300); }
+  .q summary {
+    display: flex; align-items: center; gap: 14px; padding: 18px 20px; min-height: 44px;
+    cursor: pointer; list-style: none; font: 600 17px/1.35 var(--font-ui); color: var(--ink);
+  }
+  .q summary::-webkit-details-marker { display: none; }
+  .q summary::after { content: '+'; margin-left: auto; font: 700 20px/1 var(--font-px); color: var(--coral-300); }
+  .q[open] summary::after { content: '−'; }
+  .q summary:hover { color: var(--coral-300); }
+  .q summary:focus-visible { outline: 3px solid var(--warning); outline-offset: 4px; }
+  .q-tag { flex: none; padding: 5px 7px; font: 700 11px/1 var(--font-px); letter-spacing: .06em; color: var(--night-950); background: var(--coral); }
+  .q p { margin: 0; padding: 0 20px 20px 66px; font-size: 16px; line-height: 1.6; color: var(--ink-dim); }
+  .q p code { font: 500 14px/1 var(--font-mono); color: var(--warning); }
+  .q p b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 460px) { .q p { padding-left: 20px; } }
+
+  .trophies { --c: var(--plum-400); padding: 24px 22px 22px; background: var(--night-800); position: sticky; top: calc(var(--nav-h) + 24px); }
+  .trophies-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  .trophies h3 { margin: 0; font: 700 18px/1 var(--font-px); color: var(--ink); }
+  .trophies-count { font: 700 13px/1 var(--font-px); color: var(--ink-mute); }
+  .trophies-count b { color: var(--warning); }
+  .badges { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .badge { display: grid; justify-items: center; gap: 8px; padding: 14px 6px 12px; text-align: center; background: var(--night-700); }
+  .badge canvas { width: 36px; height: 36px; image-rendering: pixelated; }
+  .badge b { font: 700 11px/1.25 var(--font-px); letter-spacing: .02em; color: var(--ink); }
+  .badge span { font-size: 12px; line-height: 1.35; color: var(--ink-mute); }
+  .badge.locked canvas { filter: grayscale(1) brightness(.6); }
+  .badge.locked b { color: var(--ink-mute); }
+  .badge.got { box-shadow: inset 0 -3px 0 0 var(--badge, var(--warning)); }
+  .trophies-hint { margin: 16px 0 0; font-size: 13px; color: var(--ink-mute); }
+
+  /* achievement pop-up: fixed so it shows wherever you are on the page */
+  .ach-pop {
+    position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; align-items: center; gap: 14px;
+    padding: 12px 16px 12px 12px; max-width: min(340px, calc(100vw - 32px));
+    background: var(--night-900); visibility: hidden; opacity: 0;
+    box-shadow: 0 -3px 0 0 var(--warning), 0 3px 0 0 var(--warning), -3px 0 0 0 var(--warning), 3px 0 0 0 var(--warning), 6px 6px 0 0 #000;
+  }
+  .ach-pop canvas { width: 40px; height: 40px; image-rendering: pixelated; flex: none; }
+  .ach-pop small { display: block; font: 700 10px/1 var(--font-px); letter-spacing: .1em; color: var(--warning); margin-bottom: 6px; }
+  .ach-pop b { font: 700 14px/1.2 var(--font-px); color: var(--ink); }
+
+  /* cheat-code confetti */
+  .confetti { position: fixed; top: 0; left: 0; z-index: 70; width: 8px; height: 8px; pointer-events: none; }
+
+  /* pause decorative CSS loops while their section is off screen */
+  .section.is-off .spark, .section.is-off .floor, .continue.is-off .h2 { animation-play-state: paused !important; }
+
+  /* ---------- marquee bands ---------- */
+  .band { position: relative; z-index: 3; overflow-x: hidden; overflow-x: clip; padding: 0; }
+  .marquee {
+    position: relative; z-index: 3; overflow: hidden;
+    margin: -30px -4vw; padding: 18px 0;
+    background: var(--coral); color: var(--night-950);
+    transform: rotate(-1.6deg);
+    box-shadow: 0 -4px 0 0 var(--coral-700), 0 4px 0 0 var(--coral-700), 0 14px 0 0 rgba(5, 3, 10, .55);
+  }
+  .marquee--alt { background: var(--night-950); color: var(--ink); transform: rotate(1.3deg);
+    box-shadow: 0 -4px 0 0 var(--plum-300), 0 4px 0 0 var(--plum-300), 0 14px 0 0 rgba(5, 3, 10, .55); }
+  .marquee--flip { transform: rotate(1.6deg); }
+  .marquee-track { display: flex; width: max-content; will-change: transform; }
+  .marquee-track > span {
+    flex: none; display: flex; align-items: center; gap: 30px; padding-right: 30px;
+    font: 700 clamp(22px, 3.4vw, 42px)/1 var(--font-px); letter-spacing: .03em; white-space: nowrap; text-transform: uppercase;
+  }
+  .marquee i { flex: none; width: 16px; height: 16px; background: currentColor;
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+  .marquee .jp { font-family: 'DotGothic16', var(--font-px); font-weight: 400; color: var(--coral-300); }
+  .marquee .out { color: transparent; -webkit-text-stroke: 1.5px currentColor; }
+  .marquee--alt .out { -webkit-text-stroke-color: var(--ink); }
+
+  /* split text */
+  .wd { display: inline-block; white-space: nowrap; }
+  .ch { display: inline-block; }
+  .kicker { margin: 0 0 16px; font: 700 13px/1.3 var(--font-px); letter-spacing: .12em; color: var(--coral-300); }
+  .h2 { margin: 0; font: 700 clamp(30px, 5vw, 60px)/1.02 var(--font-px); letter-spacing: -.01em; color: var(--ink); text-shadow: 4px 4px 0 var(--night-950); }
+  .lead { margin: 22px 0 0; max-width: 58ch; font-size: clamp(16px, 1.4vw, 19px); color: var(--ink-dim); }
+  .link { color: var(--coral-300); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .link:hover { color: var(--ink); }
+
+  .deck-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 28px 40px; margin-bottom: 64px; }
+  .progress { display: grid; gap: 12px; justify-items: start; }
+  .progress-label { font: 700 13px/1 var(--font-px); letter-spacing: .08em; color: var(--ink-dim); }
+  .progress-label b { color: var(--success); font-weight: 700; }
+  .segs { display: flex; gap: 6px; }
+  .segs i { width: 22px; height: 14px; background: var(--night-600); box-shadow: 0 3px 0 0 var(--night-950); }
+  .segs i.on { background: var(--success); }
+  .reset { background: none; border: 0; padding: 4px 0; cursor: pointer; font: 400 11px/1 var(--font-px); color: var(--ink-mute); text-decoration: underline; text-underline-offset: 4px; }
+  .reset:hover { color: var(--ink); }
+  .reset:focus-visible { outline: 3px solid var(--warning); outline-offset: 4px; }
+
+  /* Bento: 4 columns, feature tiles span, dense packing fills the holes */
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-flow: dense; gap: 36px 32px; }
+  /* Rows pair tiles of similar content height so nothing stretches into empty space:
+     [anime 2][manga 2] / [4 singles] / [fillers][random][downloads 2] / [info 2][tools & ai 2] */
+  .card--xl, .card--wide, .card--bonus { grid-column: span 2; }
+  .card[data-id="bonus-info"], .card[data-id="bonus-tools"] { order: 1; }
+  .card--xl .ico { width: 72px; height: 72px; }
+  .card--xl h3 { font-size: clamp(22px, 2vw, 26px); line-height: 1.25; }
+  .card--xl .xl-foot { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .card--xl .xl-foot code { font: 500 13px/1 var(--font-mono); color: var(--ink-dim); background: var(--night-800); padding: 8px 10px; }
+  .card {
+    --c: var(--night-600);
+    position: relative; overflow: hidden;
+    padding: 24px 22px 26px;
+    background: var(--night-700);
+    transition: transform .12s steps(2), box-shadow .12s steps(2);
+  }
+  .card:hover { transform: translate(-3px, -3px); }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+  .card .ico { width: 52px; height: 52px; image-rendering: pixelated; filter: grayscale(1); opacity: .5; transition: filter .2s steps(2), opacity .2s steps(2); }
+  .chip {
+    font: 700 11px/1 var(--font-px); letter-spacing: .08em;
+    padding: 6px 8px; color: var(--ink-mute); background: var(--night-800);
+  }
+  .card-cmd { display: inline-block; font: 700 15px/1 var(--font-mono); color: var(--accent); margin-bottom: 10px; }
+  .card h3 { margin: 0 0 8px; font: 600 19px/1.3 var(--font-ui); color: var(--ink); }
+  .card p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-dim); }
+  /* Hanko seal: 済 ("done") in a red double-ruled square */
+  .card .stamp {
+    position: absolute; right: 16px; bottom: 18px;
+    display: grid; place-items: center; width: 46px; height: 46px;
+    font: 400 28px/1 'DotGothic16', var(--font-px); color: var(--danger);
+    transform: rotate(-10deg);
+    box-shadow: inset 0 0 0 3px currentColor, inset 0 0 0 6px var(--night-700), inset 0 0 0 7px currentColor;
+    opacity: 0;
+  }
+  .card.is-cleared { --c: var(--accent); }
+  .card.is-cleared .ico { filter: none; opacity: 1; }
+  .card.is-cleared .chip { color: var(--night-950); background: var(--success); }
+  .card.is-cleared .stamp { opacity: .9; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 14px 16px; margin: 0 0 44px; }
+  .filter {
+    min-height: 40px; padding: 12px 14px; border: 0; cursor: pointer;
+    font: 700 12px/1 var(--font-px); letter-spacing: .08em; color: var(--ink-dim); background: var(--night-700);
+    box-shadow: 0 -3px 0 0 var(--night-600), 0 3px 0 0 var(--night-600), -3px 0 0 0 var(--night-600), 3px 0 0 0 var(--night-600);
+  }
+  .filter:hover { color: var(--ink); }
+  .filter[aria-pressed="true"] {
+    color: var(--night-950); background: var(--coral);
+    box-shadow: 0 -3px 0 0 var(--coral-700), 0 3px 0 0 var(--coral-700), -3px 0 0 0 var(--coral-700), 3px 0 0 0 var(--coral-700);
+  }
+  .filter:focus-visible { outline: 3px solid var(--warning); outline-offset: 6px; }
+  .card--bonus .stamp { bottom: auto; top: 76px; right: 22px; }
+  .card--xl .stamp { bottom: auto; top: 22px; right: 128px; }
+  .card-kicker { display: inline-block; margin-bottom: 10px; font: 700 12px/1 var(--font-px); letter-spacing: .1em; color: var(--accent); }
+  .cmd-list { list-style: none; margin: 18px 0 0; padding: 16px 0 0; display: grid; gap: 10px; box-shadow: inset 0 3px 0 0 var(--night-600); }
+  .cmd-list li { display: grid; grid-template-columns: 8.5em 1fr; gap: 12px; font-size: 15px; line-height: 1.45; color: var(--ink-dim); }
+  .cmd-list code { font: 700 14px/1.45 var(--font-mono); color: var(--accent); }
+  @media (max-width: 460px) { .cmd-list li { grid-template-columns: 1fr; gap: 2px; } }
+  .slots .gap { width: 8px; }
+
+  /* Bento breakpoints: kept after every span rule so they always win */
+  @media (max-width: 1000px) {
+    .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 620px) {
+    .cards { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .card--xl, .card--wide, .card--bonus { grid-column: auto; }
+    .card--xl .stamp, .card--bonus .stamp { top: auto; bottom: 16px; right: 14px; }
+  }
+
+  .more { margin-top: 64px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 12px; }
+  .more span { font: 700 12px/1 var(--font-px); color: var(--ink-mute); letter-spacing: .08em; margin-right: 8px; }
+  .more code { font: 500 14px/1 var(--font-mono); color: var(--ink-dim); background: var(--night-700); padding: 8px 10px; }
+
+  /* how it works */
+  .how { background: var(--night-900); }
+  .how-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: clamp(48px, 7vw, 96px); align-items: center; margin-top: 64px; }
+  @media (max-width: 900px) { .how-grid { grid-template-columns: 1fr; } }
+  .dialogs { display: grid; gap: 34px; }
+  .dialog {
+    --c: var(--plum-300);
+    display: grid; grid-template-columns: 64px 1fr; gap: 20px; align-items: start;
+    padding: 20px 22px 22px;
+    background: var(--night-800);
+  }
+  .portrait { width: 64px; height: 64px; background: var(--night-700); display: grid; place-items: center;
+    box-shadow: 0 -3px 0 0 var(--plum-400), 0 3px 0 0 var(--plum-400), -3px 0 0 0 var(--plum-400), 3px 0 0 0 var(--plum-400); }
+  .portrait canvas { width: 60px; height: 60px; image-rendering: pixelated; }
+  .speaker { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font: 700 12px/1 var(--font-px); letter-spacing: .1em; }
+  .speaker .who { color: var(--coral-300); }
+  .speaker .step { color: var(--ink-mute); }
+  .say { margin: 0; font-size: 17px; line-height: 1.6; color: var(--ink); min-height: 3.2em; }
+  .say code { font: 500 15px/1 var(--font-mono); color: var(--warning); }
+  .caret { display: inline-block; width: 10px; height: 10px; margin-left: 6px; background: var(--coral); animation: blink .8s steps(1) infinite; vertical-align: baseline; }
+
+  .phone {
+    --c: var(--plum-300);
+    width: min(360px, 100%); margin-inline: auto;
+    background: var(--night-800);
+    padding: 0 0 18px;
+  }
+  .phone-top { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--night-700); box-shadow: 0 4px 0 0 var(--night-950); }
+  .phone-top canvas { width: 36px; height: 36px; image-rendering: pixelated; background: var(--night-800); }
+  .phone-top b { display: block; font: 700 14px/1.2 var(--font-px); }
+  .phone-top small { font-size: 12px; color: var(--success); }
+  .chat { display: grid; gap: 14px; padding: 22px 16px 6px; min-height: 360px; align-content: start;
+    background-image: var(--dither-soft, none); background-size: 64px 64px; image-rendering: pixelated; }
+  .msg { max-width: 86%; padding: 10px 12px; font-size: 14px; line-height: 1.45; }
+  .msg.me { justify-self: end; background: var(--plum-400); }
+  .msg.bot { justify-self: start; background: var(--night-600); }
+  .msg code { font: 500 13px/1 var(--font-mono); color: var(--ink); }
+  .msg .meta { display: block; margin-top: 4px; font-size: 11px; color: var(--ink-mute); text-align: right; }
+  .kb { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; justify-self: stretch; }
+  .msg b { font-weight: 600; }
+  .sys { justify-self: center; font: 400 11px/1.4 var(--font-px); color: var(--ink-mute); letter-spacing: .04em; }
+  .msg.file { display: flex; align-items: center; gap: 12px; }
+  .msg.file .meta { text-align: left; }
+  .pdf { flex: none; display: grid; place-items: center; width: 40px; height: 48px;
+    font: 700 11px/1 var(--font-px); color: var(--night-950); background: var(--coral);
+    clip-path: polygon(0 0, 70% 0, 100% 22%, 100% 100%, 0 100%); }
+  .kb span { padding: 9px 0; text-align: center; font: 600 12px/1 var(--font-ui); color: var(--ink); background: var(--night-700);
+    box-shadow: 0 -2px 0 0 var(--plum-400), 0 2px 0 0 var(--plum-400), -2px 0 0 0 var(--plum-400), 2px 0 0 0 var(--plum-400); }
+  .kb span.tap { background: var(--coral); color: var(--night-950); }
+  .dots i { display: inline-block; width: 6px; height: 6px; margin-right: 4px; background: var(--ink-dim); animation: blink 1s steps(1) infinite; }
+  .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
+
+  /* continue */
+  .continue { text-align: center; background: var(--night-950); overflow: hidden; }
+  .continue .h2 { font-size: clamp(40px, 9vw, 120px); color: var(--coral); text-shadow: 5px 5px 0 var(--plum), 10px 10px 0 #000; animation: flicker 4s steps(1) infinite; }
+  .count { margin: 18px 0 44px; font: 700 clamp(96px, 20vw, 240px)/1 var(--font-px); color: var(--warning); text-shadow: 6px 6px 0 var(--coral-700), 12px 12px 0 #000; }
+  .continue .sub { margin: 30px auto 0; font: 400 12px/1.8 var(--font-px); color: var(--ink-mute); letter-spacing: .06em; }
+  .coin { font: 400 12px/1 var(--font-px); color: var(--ink-mute); letter-spacing: .12em; margin: 0 0 18px; }
+
+  footer {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px 32px;
+    padding: 132px var(--gutter) 40px;
+    background: var(--skyline, none) repeat-x 0 0 / 480px 96px, var(--night-950);
+    image-rendering: pixelated;
+    font-size: 14px; color: var(--ink-mute);
+  }
+  footer nav { display: flex; gap: 24px; flex-wrap: wrap; }
+  footer a { color: var(--ink-dim); text-decoration: none; }
+  footer a:hover { color: var(--ink); text-decoration: underline; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+    html { scroll-behavior: auto; }
+    .spark, .floor { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#commands">Skip to content</a>
+
+<header class="nav" id="nav">
+  <a class="brand" href="#play" aria-label="AnimeDrive home">
+    <canvas id="brand-bloub" width="20" height="20" class="pixelated" aria-hidden="true"></canvas>
+    <span>ANIME<b>DRIVE</b></span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#play">Play</a></li>
+    <li><a href="#commands">Commands</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <a class="btn btn--sm" href="https://t.me/animedrive_bot" target="_blank" rel="noopener">Open bot</a>
+</header>
+<div class="xp" id="xp" aria-hidden="true"></div>
+
+<main>
+  <!-- ============ HERO + GAME ============ -->
+  <section class="hero" id="play" aria-label="AnimeDrive intro and mini-game">
+    <canvas id="world" role="img" aria-label="Pixel-art runner game: Bloub, a coral blob, runs through a night-time city collecting command orbs and jumping over filler crates."></canvas>
+    <div class="scan" aria-hidden="true"></div>
+    <div class="dither-edge" aria-hidden="true"></div>
+
+    <div class="hero-copy" id="hero-copy" data-no-jump>
+      <p class="eyebrow">Telegram bot · anime + manga</p>
+      <h1 class="title" aria-label="AnimeDrive"><span class="l1" aria-hidden="true">ANIME</span><span class="l2" aria-hidden="true">DRIVE</span></h1>
+      <p class="tagline">Episodes, manga chapters, airing schedules and screenshot lookups, all from one Telegram chat.</p>
+      <div class="actions">
+        <a class="btn" href="https://t.me/animedrive_bot" target="_blank" rel="noopener">Open in Telegram <span class="arrow" aria-hidden="true"></span></a>
+        <button class="btn btn--ghost" type="button" id="play-btn"><span class="tri" aria-hidden="true"></span> Play the intro</button>
+      </div>
+      <p class="hint">
+        <span class="keys"><span class="kbd">Space</span> jump · press twice to double-jump · <span class="kbd">P</span> pause · <span class="kbd">M</span> sound</span>
+        <span class="touch">Tap to jump · tap twice to double-jump</span>
+      </p>
+    </div>
+
+    <p class="press" id="press" aria-hidden="true"><span class="keys">Press space to start</span><span class="touch">Tap to start</span></p>
+
+    <div class="hud" id="hud" hidden>
+      <div class="hud-stat">
+        <span class="hud-label">HP <span class="jp-tag" lang="ja">残機</span></span>
+        <div class="hearts" id="hearts"></div>
+      </div>
+      <div class="hud-stat">
+        <span class="hud-label">Commands <span id="hud-count">0/8</span></span>
+        <div class="slots" id="slots"></div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-stat" style="text-align:right">
+          <span class="hud-label">Score · best <span id="hud-best">000000</span></span>
+          <span class="hud-score" id="hud-score">000000</span>
+        </div>
+        <button class="icon-btn" type="button" id="pause-btn" aria-label="Pause game">II</button>
+        <button class="icon-btn" type="button" id="sound-btn" aria-pressed="true">SFX</button>
+      </div>
+    </div>
+
+    <div class="toast px-box" id="toast" aria-hidden="true"></div>
+    <p class="sr-only" id="live" aria-live="polite"></p>
+
+    <div class="overlay" id="paused" hidden>
+      <div class="panel px-box" role="dialog" aria-modal="false" aria-labelledby="paused-title">
+        <h2 class="paused" id="paused-title">Paused</h2>
+        <p class="reason">Take five. Press space or the button to jump back in.</p>
+        <div class="row"><button class="btn" type="button" id="resume-btn">Resume</button></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="over" hidden>
+      <div class="panel px-box" role="dialog" aria-modal="false" aria-labelledby="over-title">
+        <h2 id="over-title">Game over</h2>
+        <p class="jp-sub jp-sub--sm" lang="ja" aria-hidden="true">ゲームオーバー</p>
+        <p class="reason" id="over-reason">A filler arc got you.</p>
+        <dl>
+          <div><dt>Score</dt><dd id="over-score">0</dd></div>
+          <div><dt>Best</dt><dd id="over-best">0</dd></div>
+          <div><dt>Commands</dt><dd id="over-cmds">0/8</dd></div>
+        </dl>
+        <div class="row">
+          <button class="btn" type="button" id="retry-btn">Play again</button>
+          <a class="btn btn--ghost" href="https://t.me/animedrive_bot" target="_blank" rel="noopener">Open bot</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="band" aria-hidden="true">
+    <div class="marquee" data-dir="l"><div class="marquee-track"><span>
+      Read manga <i></i> <b class="jp">アニメ</b> <i></i> Anime schedules <i></i> <b class="out">Find the sauce</b> <i></i> <b class="jp">マンガ</b> <i></i> Chapters as PDF <i></i> <b class="out">Airing tonight</b> <i></i>
+    </span></div></div>
+  </div>
+
+  <!-- ============ COMMAND DECK ============ -->
+  <section class="section" id="commands" aria-labelledby="deck-title">
+    <div class="bg-layer tone" aria-hidden="true"></div>
+    <div class="bg-layer sparks" aria-hidden="true"></div>
+    <span class="ghost" aria-hidden="true">コマンド</span>
+    <span class="vlabel" lang="ja" aria-hidden="true">第一面<i></i>コマンド一覧</span>
+    <div class="wrap">
+      <div class="deck-head">
+        <div>
+          <p class="kicker reveal" data-scramble>Level 01 · Command deck</p>
+          <h2 class="h2" data-split id="deck-title">Every orb is a real command.</h2>
+          <p class="jp-sub reveal" lang="ja" aria-hidden="true">すべてのオーブは、本物のコマンド。</p>
+          <p class="lead reveal" data-words>Grab orbs in the <a class="link" href="#play">intro game</a> to clear cards. Coins unlock the core eight, and rare gems unlock the bonus stages. You don't have to play to use them, though. Every command works in the bot from the start.</p>
+        </div>
+        <div class="progress reveal">
+          <span class="progress-label"><b id="deck-count">0</b> / 11 cleared</span>
+          <div class="segs" id="segs" aria-hidden="true"></div>
+          <button class="reset" type="button" id="reset-btn">Reset progress</button>
+        </div>
+      </div>
+
+      <div class="filters reveal" role="group" aria-label="Filter commands">
+        <button class="filter" type="button" data-filter="all" aria-pressed="true">All</button>
+        <button class="filter" type="button" data-filter="core" aria-pressed="false">Core 8</button>
+        <button class="filter" type="button" data-filter="bonus-info" aria-pressed="false">Info</button>
+        <button class="filter" type="button" data-filter="bonus-dl" aria-pressed="false">Downloads</button>
+        <button class="filter" type="button" data-filter="bonus-tools" aria-pressed="false">Tools &amp; AI</button>
+      </div>
+
+      <div class="cards" id="cards">
+        <article class="card card--wide px-box" data-id="anime" style="--accent: var(--coral)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <code class="card-cmd">/anime</code>
+          <h3>Episodes on demand</h3>
+          <p>Search a show and get its episodes sent straight to your chat.</p>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card card--xl px-box" data-id="manga" style="--accent: var(--success)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <div>
+            <code class="card-cmd">/manga</code>
+            <h3>Any chapter, as a PDF</h3>
+            <p>Search manga across multiple sources, pick a chapter, and get it as a PDF right in the chat. Pick one source or search them all at once.</p>
+            <div class="xl-foot" aria-label="Example sources"><code>MangaFire</code><code>AsuraScans</code><code>WeebCentral</code><code>MangaPark</code><code>+ more</code></div>
+          </div>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card px-box" data-id="sauce" style="--accent: var(--warning)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <code class="card-cmd">/sauce</code>
+          <h3>Name that anime</h3>
+          <p>Send a screenshot or clip and find out which anime it came from.</p>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card px-box" data-id="schedule" style="--accent: var(--info)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <code class="card-cmd">/schedule</code>
+          <h3>Airing schedule</h3>
+          <p>Pick a day and see which episodes air, with a countdown to each.</p>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card px-box" data-id="browse" style="--accent: var(--coral-300)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <code class="card-cmd">/browse</code>
+          <h3>Trending &amp; upcoming</h3>
+          <p>Browse what's trending, what's popular, and what's coming next.</p>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card px-box" data-id="lastairing" style="--accent: var(--plum-300)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <code class="card-cmd">/lastairing</code>
+          <h3>Fresh episodes</h3>
+          <p>See the most recently aired episodes the moment you check in.</p>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card px-box" data-id="fillers" style="--accent: var(--danger)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <code class="card-cmd">/fillers</code>
+          <h3>Skip the filler</h3>
+          <p>Look up a series' filler episodes and skip straight to canon.</p>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card px-box" data-id="random" style="--accent: var(--ink)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <code class="card-cmd">/random</code>
+          <h3>Roll the dice</h3>
+          <p>Can't decide what to watch? Get a random anime pick.</p>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+
+        <article class="card card--bonus px-box" data-id="bonus-info" style="--accent: var(--info)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <span class="card-kicker">Bonus stage · Info</span>
+          <h3>Deep dives</h3>
+          <p>When a quick answer isn't enough.</p>
+          <ul class="cmd-list">
+            <li><code>/animeinfo</code><span>Full details on any anime.</span></li>
+            <li><code>/mangainfo</code><span>Full details on any manga.</span></li>
+            <li><code>/top</code><span>Top-ranked anime and manga.</span></li>
+            <li><code>/anilist</code><span>Your AniList activity and stats.</span></li>
+            <li><code>/saucenao</code><span>Find an image's source with SauceNAO.</span></li>
+          </ul>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card card--bonus px-box" data-id="bonus-dl" style="--accent: var(--success)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <span class="card-kicker">Bonus stage · Downloads</span>
+          <h3>Save it for later</h3>
+          <p>Pull media from links straight into Telegram.</p>
+          <ul class="cmd-list">
+            <li><code>/ytb</code><span>Download YouTube videos or audio.</span></li>
+            <li><code>/vidownload</code><span>Download video or audio from a link.</span></li>
+            <li><code>/pinterest</code><span>Search and download Pinterest images.</span></li>
+          </ul>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+        <article class="card card--bonus px-box" data-id="bonus-tools" style="--accent: var(--warning)">
+          <div class="card-top"><canvas class="ico" width="13" height="13" aria-hidden="true"></canvas><span class="chip">Locked</span></div>
+          <span class="card-kicker">Bonus stage · Tools &amp; AI</span>
+          <h3>Everything else</h3>
+          <p>An AI chat and a few handy utilities.</p>
+          <ul class="cmd-list">
+            <li><code>/gemini</code><span>Chat with an AI assistant, powered by Google Gemini.</span></li>
+            <li><code>/search</code><span>Search the web without leaving the chat.</span></li>
+            <li><code>/upload</code><span>Upload media to Imgur and get a link.</span></li>
+            <li><code>/note</code><span>Create and manage personal notes.</span></li>
+            <li><code>/list</code><span>Browse the archive list.</span></li>
+            <li><code>/request</code><span>Send a request or feedback.</span></li>
+          </ul>
+          <span class="stamp" aria-hidden="true">済</span>
+        </article>
+      </div>
+
+      <div class="more reveal">
+        <span>Start here</span>
+        <code>/start</code><code>/help</code>
+      </div>
+    </div>
+  </section>
+
+  <div class="band" aria-hidden="true">
+    <div class="marquee marquee--alt" data-dir="r"><div class="marquee-track"><span>
+      /anime <i></i> <b class="out">/manga</b> <i></i> /sauce <i></i> <b class="out">/schedule</b> <i></i> /browse <i></i> <b class="out">/lastairing</b> <i></i> /fillers <i></i> <b class="out">/random</b> <i></i>
+    </span></div></div>
+  </div>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="section how" id="how" aria-labelledby="how-title">
+    <div class="bg-layer speed" aria-hidden="true"></div>
+    <span class="ghost ghost--low" aria-hidden="true">はじめる</span>
+    <span class="vlabel" lang="ja" aria-hidden="true">第二面<i></i>はじめかた</span>
+    <div class="wrap">
+      <p class="kicker reveal" data-scramble>Level 02 · How to start</p>
+      <h2 class="h2" data-split id="how-title">Three steps. Zero menus.</h2>
+      <p class="jp-sub reveal" lang="ja" aria-hidden="true">三つのステップ。メニューなし。</p>
+
+      <div class="how-grid">
+        <div class="dialogs">
+          <div class="dialog px-box reveal">
+            <div class="portrait"><canvas class="bloub-portrait" width="20" height="20" aria-hidden="true"></canvas></div>
+            <div>
+              <div class="speaker"><span class="who">Bloub</span><span class="step">Step 1/3</span></div>
+              <p class="say" data-type>Open <code>@animedrive_bot</code> in Telegram, on your phone, desktop or the web.</p>
+            </div>
+          </div>
+          <div class="dialog px-box reveal">
+            <div class="portrait"><canvas class="bloub-portrait" width="20" height="20" aria-hidden="true"></canvas></div>
+            <div>
+              <div class="speaker"><span class="who">Bloub</span><span class="step">Step 2/3</span></div>
+              <p class="say" data-type>Tap <code>START</code>. The bot walks you through the rest.</p>
+            </div>
+          </div>
+          <div class="dialog px-box reveal">
+            <div class="portrait"><canvas class="bloub-portrait" width="20" height="20" aria-hidden="true"></canvas></div>
+            <div>
+              <div class="speaker"><span class="who">Bloub</span><span class="step">Step 3/3</span></div>
+              <p class="say" data-type>Send a command like <code>/manga</code>, <code>/sauce</code> or <code>/schedule</code>. Stuck? <code>/help</code> lists everything.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="phone px-box reveal" role="img" aria-label="Example chat: sending /manga one piece, picking a source, and receiving a chapter as a PDF">
+          <div class="phone-top">
+            <canvas class="bloub-portrait" width="20" height="20" aria-hidden="true"></canvas>
+            <div><b>AnimeDrive</b><small>bot</small></div>
+          </div>
+          <div class="chat" id="chat" aria-hidden="true">
+            <div class="msg me"><code>/manga one piece</code><span class="meta">now</span></div>
+            <div class="msg bot"><b>Select a source to search:</b> <code>One Piece</code></div>
+            <div class="kb" id="kb"><span>MangaFire</span><span>AsuraScans</span><span>WeebCentral</span><span>MangaPark</span><span>Search All</span><span>Close</span></div>
+            <div class="sys">picks a title, then a chapter <span class="dots"><i></i><i></i><i></i></span></div>
+            <div class="msg bot file">
+              <span class="pdf" aria-hidden="true">PDF</span>
+              <span><b>[Chapter 01] One Piece</b><span class="meta">PDF document</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ QUEST LOG: FAQ + ACHIEVEMENTS ============ -->
+  <section class="section quest" id="faq" aria-labelledby="faq-title">
+    <div class="bg-layer quest-grid" aria-hidden="true"></div>
+    <span class="ghost" aria-hidden="true">クエスト</span>
+    <span class="vlabel" lang="ja" aria-hidden="true">第三面<i></i>よくある質問</span>
+    <div class="wrap">
+      <p class="kicker reveal" data-scramble>Level 03 · Quest log</p>
+      <h2 class="h2" data-split id="faq-title">Questions, answered.</h2>
+      <p class="jp-sub reveal" lang="ja" aria-hidden="true">よくある質問と実績。</p>
+
+      <div class="quest-grid-layout">
+        <div class="faq">
+          <details class="q px-box reveal">
+            <summary><span class="q-tag">Q1</span>Is AnimeDrive free?</summary>
+            <p>Yes. Every command is free to use, and there's no premium tier.</p>
+          </details>
+          <details class="q px-box reveal">
+            <summary><span class="q-tag">Q2</span>Why does the bot ask me to join channels?</summary>
+            <p>To use AnimeDrive you need to join two channels first. The bot shows a Join button for each one. Join both, tap <b>Try Again</b>, and you're in.</p>
+          </details>
+          <details class="q px-box reveal">
+            <summary><span class="q-tag">Q3</span>Do I need to sign up?</summary>
+            <p>No. Your Telegram account is all you need. Open <a class="link" href="https://t.me/animedrive_bot" target="_blank" rel="noopener">@animedrive_bot</a> and send <code>/start</code>.</p>
+          </details>
+          <details class="q px-box reveal">
+            <summary><span class="q-tag">Q4</span>What does the bot store about me?</summary>
+            <p>What Telegram shares with every bot: your Telegram ID, name and username. It also keeps when you joined, when you were last active, and which commands you use. If you link AniList, it saves your AniList username, and notes you save with <code>/note</code> are kept so you can read them later.</p>
+          </details>
+          <details class="q px-box reveal">
+            <summary><span class="q-tag">Q5</span>Something failed or the bot didn't answer.</summary>
+            <p>Wait a minute and try again, or pick another option from the menu. If it keeps happening, tell us with <code>/request</code>.</p>
+          </details>
+          <details class="q px-box reveal">
+            <summary><span class="q-tag">Q6</span>Where's the full command list?</summary>
+            <p>Send <code>/help</code> in the bot, or browse the <a class="link" href="#commands">command deck</a> above.</p>
+          </details>
+          <details class="q px-box reveal">
+            <summary><span class="q-tag">Q7</span>Do the game orbs change anything in the bot?</summary>
+            <p>No, the game is just for fun. Every command works from the start. Your game progress and achievements are saved in this browser only.</p>
+          </details>
+        </div>
+
+        <aside class="trophies px-box reveal" aria-labelledby="ach-title">
+          <div class="trophies-head">
+            <h3 id="ach-title">Achievements</h3>
+            <span class="trophies-count"><b id="ach-count">0</b> / <span id="ach-total">9</span></span>
+          </div>
+          <ul class="badges" id="badges"></ul>
+          <p class="trophies-hint">Some are found in the game. One needs an old cheat code.</p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <div class="band" aria-hidden="true">
+    <div class="marquee marquee--flip" data-dir="l"><div class="marquee-track"><span>
+      Press start <i></i> <b class="jp">コンティニュー</b> <i></i> <b class="out">Insert coin</b> <i></i> Player 1 ready <i></i> <b class="out">1UP</b> <i></i> High score <i></i>
+    </span></div></div>
+  </div>
+
+  <!-- ============ CONTINUE ============ -->
+  <section class="section continue" id="start" aria-labelledby="cont-title">
+    <div class="bg-layer sparks" aria-hidden="true"></div>
+    <div class="bg-layer" aria-hidden="true"><div class="floor"></div></div>
+    <span class="ghost" aria-hidden="true">コンティニュー</span>
+    <div class="airship" aria-hidden="true">
+      <canvas width="56" height="28"></canvas>
+      <span class="banner">AnimeDrive</span>
+    </div>
+    <div class="fighter" aria-hidden="true"><canvas width="48" height="32"></canvas></div>
+    <div class="wind" aria-hidden="true"></div>
+    <div class="noren" aria-hidden="true"><span>ゲ</span><span>ー</span><span>セ</span><span>ン</span></div>
+    <p class="coin reveal">Insert coin</p>
+    <h2 class="h2" data-split id="cont-title">Continue?</h2>
+    <p class="jp-sub" lang="ja" aria-hidden="true">コンティニュー？</p>
+    <p class="count" id="count" aria-hidden="true">9</p>
+    <a class="btn" href="https://t.me/animedrive_bot" target="_blank" rel="noopener">Press start <span class="arrow" aria-hidden="true"></span></a>
+    <p class="sub">Opens @animedrive_bot in Telegram. Send /start and you're in.</p>
+  </section>
+</main>
+
+<div class="ach-pop" id="ach-pop" aria-hidden="true"></div>
+
+<footer>
+  <span>AnimeDrive: anime &amp; manga on Telegram. Not affiliated with Telegram.</span>
+  <nav aria-label="Footer">
+    <a href="https://t.me/animedrive_bot" target="_blank" rel="noopener">Open bot</a>
+    <a href="#commands">Commands</a>
+    <a href="#play">Back to the game</a>
+  </nav>
+</footer>
+
+<script type="module">
+// Three.js is imported lazily in bootGame() so the deck, animations and links work before it arrives.
+let THREE = null;
+
+/* =====================================================================
+   Shared helpers
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const HAS_GSAP = typeof window.gsap !== 'undefined';
+if (HAS_GSAP && window.ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } }
+};
+
+const PAL = {
+  n950: '#0b0812', n900: '#0e0a16', n800: '#140f1f', n700: '#1d1630', n600: '#2a2040',
+  plum: '#423658', plum4: '#5a4a78', plum3: '#8a7aa8',
+  coral: '#DD5A6D', coral3: '#f08a98', coral7: '#a83a4c',
+  ok: '#5cb88a', warn: '#e5a84b', bad: '#d94f4f', info: '#7b8ec2',
+  ink: '#f3eef8', ink2: '#c4b8d6', outline: '#231833'
+};
+const FOG = PAL.n600;
+
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function mix(a, b, t) {
+  const A = hexRgb(a), B = hexRgb(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+/* ---------- pixel canvas toolkit ---------- */
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  return [c, g];
+}
+function px(g, x, y, col, w = 1, h = 1) { g.fillStyle = col; g.fillRect(x, y, w, h); }
+function fromRows(rows, pal, into) {
+  const h = rows.length, w = rows[0].length;
+  const [c, g] = into || makeCanvas(w, h);
+  rows.forEach((r, y) => { for (let x = 0; x < w; x++) { const col = pal[r[x]]; if (col) px(g, x, y, col); } });
+  return c;
+}
+function upscale(src, s) {
+  const [c, g] = makeCanvas(src.width * s, src.height * s);
+  g.drawImage(src, 0, 0, c.width, c.height);
+  return c;
+}
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
+const dither = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
+
+/* =====================================================================
+   Native pixel assets
+   ===================================================================== */
+
+// Bloub, the mascot: a cloud-shaped blob built from circles, rasterised per frame.
+const BLOB = [[5.5, 6.5, 3.2], [10, 6, 3.4], [3.8, 10, 2.9], [12.2, 10, 2.9], [8, 10, 4.6], [6, 12, 2.6], [10.3, 12, 2.6]];
+const BODY = PAL.coral, BODY_HI = mix(PAL.coral, PAL.ink, .38), BODY_LO = mix(PAL.coral, PAL.coral7, .7), EYE = '#fbf7ff';
+
+function drawBloub({ sx = 1, sy = 1, eyes = 'open', look = 0 } = {}) {
+  const S = 20, OX = 2, OY = 3, BX = 8, BY = 14.6;
+  const [c, g] = makeCanvas(S, S);
+  const inside = (x, y) => {
+    if (x < 0 || y < 0 || x >= S || y >= S) return false;
+    const bx = (x + .5 - OX - BX) / sx + BX, by = (y + .5 - OY - BY) / sy + BY;
+    return BLOB.some(([cx, cy, r]) => (bx - cx) ** 2 + (by - cy) ** 2 <= r * r);
+  };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    if (inside(x, y)) {
+      let col = BODY;
+      if (!inside(x + 1, y + 1) || !inside(x, y + 2)) col = BODY_LO;
+      else if (!inside(x - 1, y - 1) && !inside(x, y - 1)) col = BODY_HI;
+      px(g, x, y, col);
+    } else if (inside(x + 1, y) || inside(x - 1, y) || inside(x, y + 1) || inside(x, y - 1)) {
+      px(g, x, y, PAL.outline);
+    }
+  }
+  const ey = Math.round(OY + BY + (9.6 - BY) * sy - look);
+  [6.2, 10.2].forEach(ex => {
+    const cx = Math.round(OX + BX + (ex - BX) * sx);
+    if (eyes === 'open') px(g, cx - 1, ey - 1, EYE, 2, 3);
+    else if (eyes === 'blink') px(g, cx - 1, ey + 1, EYE, 2, 1);
+    else if (eyes === 'happy') { px(g, cx - 1, ey, EYE); px(g, cx, ey - 1, EYE); px(g, cx + 1, ey, EYE); }
+    else if (eyes === 'x') { for (let i = -1; i <= 1; i++) { px(g, cx + i, ey + i, PAL.outline); px(g, cx + i, ey - i, PAL.outline); } }
+  });
+  return c;
+}
+const BLOUB = {
+  idle: drawBloub(),
+  blink: drawBloub({ eyes: 'blink' }),
+  run: [drawBloub({ sx: 1.08, sy: .9 }), drawBloub(), drawBloub({ sx: .94, sy: 1.07 }), drawBloub()],
+  up: drawBloub({ sx: .9, sy: 1.12, look: 1 }),
+  fall: drawBloub({ sx: 1.04, sy: .97 }),
+  squash: drawBloub({ sx: 1.16, sy: .84 }),
+  hurt: drawBloub({ eyes: 'x', sx: 1.05, sy: .95 }),
+  happy: drawBloub({ eyes: 'happy', sx: .96, sy: 1.05 })
+};
+
+// 9×9 command icons. '#' = ink-dark, 'o' = light.
+const ICONS = {
+  anime: ['.#######.', '#ooooooo#', '#oo#oooo#', '#oo##ooo#', '#oo###oo#', '#oo##ooo#', '#oo#oooo#', '.#######.', '..#...#..'],
+  manga: ['##.....##', '#o##.##o#', '#ooo#ooo#', '#ooo#ooo#', '#ooo#ooo#', '#ooo#ooo#', '#ooo#ooo#', '.###.###.', '....#....'],
+  sauce: ['.####....', '#oooo#...', '#o#oo#...', '#oooo#...', '#oooo#...', '.####.#..', '......##.', '.......##', '........#'],
+  schedule: ['..#...#..', '#########', '#########', '#ooooooo#', '#o#o#o#o#', '#ooooooo#', '#o#o#o#o#', '#ooooooo#', '#########'],
+  browse: ['....#....', '...##....', '..###..#.', '..####.#.', '.#######.', '.###o###.', '.##ooo##.', '.##ooo##.', '..#####..'],
+  lastairing: ['....#....', '...###...', '..#ooo#..', '..#ooo#..', '..#ooo#..', '.#ooooo#.', '#########', '.........', '...###...'],
+  fillers: ['.........', '#...#...#', '##..##..#', '###.###.#', '#########', '###.###.#', '##..##..#', '#...#...#', '.........'],
+  random: ['#########', '#ooooooo#', '#o#ooo#o#', '#ooooooo#', '#ooo#ooo#', '#ooooooo#', '#o#ooo#o#', '#ooooooo#', '#########'],
+  'bonus-info': ['.#######.', '#ooooooo#', '#ooo#ooo#', '#ooooooo#', '#ooo#ooo#', '#ooo#ooo#', '#ooo#ooo#', '#ooooooo#', '.#######.'],
+  'bonus-dl': ['..#####..', '..#ooo#..', '..#ooo#..', '###ooo###', '#ooooooo#', '.#ooooo#.', '..#ooo#..', '...#o#...', '....#....'],
+  'bonus-tools': ['....#....', '...#o#...', '...#o#...', '.##ooo##.', '#ooooooo#', '.##ooo##.', '...#o#...', '...#o#...', '....#....']
+};
+const COMMANDS = [
+  { id: 'anime', cmd: '/anime', color: PAL.coral, line: 'Episodes, sent to your chat.' },
+  { id: 'manga', cmd: '/manga', color: PAL.ok, line: 'Manga chapters as PDF.' },
+  { id: 'sauce', cmd: '/sauce', color: PAL.warn, line: 'Find the anime from a screenshot.' },
+  { id: 'schedule', cmd: '/schedule', color: PAL.info, line: 'Airing schedule, day by day.' },
+  { id: 'browse', cmd: '/browse', color: PAL.coral3, line: 'Trending, popular, upcoming.' },
+  { id: 'lastairing', cmd: '/lastairing', color: PAL.plum3, line: 'The latest aired episodes.' },
+  { id: 'fillers', cmd: '/fillers', color: PAL.bad, line: 'Skip the filler, keep the canon.' },
+  { id: 'random', cmd: '/random', color: PAL.ink, line: 'A random anime pick.' }
+];
+// Rarer gem orbs: each clears a whole bonus stage of commands.
+const BONUS = [
+  { id: 'bonus-info', cmd: 'Deep dives', color: PAL.info, line: '/animeinfo /mangainfo /top /anilist /saucenao', bonus: true },
+  { id: 'bonus-dl', cmd: 'Downloads', color: PAL.ok, line: '/ytb /vidownload /pinterest', bonus: true },
+  { id: 'bonus-tools', cmd: 'Tools & AI', color: PAL.warn, line: '/gemini /search /upload /note /list /request', bonus: true }
+];
+const ALL = [...COMMANDS, ...BONUS];
+const CMD = Object.fromEntries(ALL.map(c => [c.id, c]));
+
+function drawIconTile(id, into, locked = false) {
+  const color = locked ? PAL.plum4 : CMD[id].color;
+  const [c, g] = into ? [into, into.getContext('2d')] : makeCanvas(13, 13);
+  g.clearRect(0, 0, 13, 13);
+  px(g, 1, 0, PAL.outline, 11, 1); px(g, 1, 12, PAL.outline, 11, 1); px(g, 0, 1, PAL.outline, 1, 11); px(g, 12, 1, PAL.outline, 1, 11);
+  px(g, 1, 1, color, 11, 11);
+  px(g, 1, 1, mix(color, PAL.ink, .4), 11, 1);
+  px(g, 1, 11, mix(color, PAL.n950, .35), 11, 1);
+  const rows = ICONS[id];
+  rows.forEach((r, y) => { for (let x = 0; x < 9; x++) {
+    if (r[x] === '#') px(g, 2 + x, 2 + y, PAL.n900);
+    else if (r[x] === 'o') px(g, 2 + x, 2 + y, locked ? PAL.plum3 : PAL.ink);
+  } });
+  return c;
+}
+
+function drawOrb(id) {
+  const [c, g] = makeCanvas(16, 16);
+  const col = CMD[id].color, gem = CMD[id].bonus;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dx = Math.abs(x + .5 - 8), dy = Math.abs(y + .5 - 8);
+    if (gem) {
+      // octagonal gem
+      const inner = dx <= 6.5 && dy <= 6.5 && dx + dy <= 9.5, outer = dx <= 7.5 && dy <= 7.5 && dx + dy <= 11;
+      if (inner) px(g, x, y, (x + y < 12 && dx + dy > 6) ? mix(col, PAL.ink, .55) : (x + y > 20 ? mix(col, PAL.n950, .3) : col));
+      else if (outer) px(g, x, y, PAL.ink);
+    } else {
+      const d = Math.hypot(dx, dy);
+      if (d <= 6.6) px(g, x, y, (x + y < 11 && d > 4.2) ? mix(col, PAL.ink, .45) : col);
+      else if (d <= 7.7) px(g, x, y, PAL.n900);
+    }
+  }
+  ICONS[id].forEach((r, y) => { for (let x = 0; x < 9; x++) {
+    if (r[x] === '#') px(g, 3.5 + x | 0, 3.5 + y | 0, PAL.n900);
+    else if (r[x] === 'o') px(g, 3.5 + x | 0, 3.5 + y | 0, PAL.ink);
+  } });
+  return c;
+}
+
+// Ryo Yamada cameo (the bot's avatar): 16×24 chibi with her bass slung behind.
+const RYO_ROWS = [
+  '....OOOOOOOO....',
+  '...OHHhhHHHHO...',
+  '..OHhhHHHHHHHO..',
+  '.OHhHHHHHHHHHHO.',
+  '.OHHHHHHHHHHHHO.',
+  '.OHHHHSHHHSHHHO.',
+  '.OHHSSSSSSSSHHO.',
+  '.OHSOOSSSSOOSHO.',
+  '.OHSEESSSSEESHO.',
+  '.OHSSSSSSSSSSHO.',
+  '.OHHSSSSmSSSHHO.',
+  '..OHHSSSSSSHHO..',
+  '..OHHOSSSSOHHO..',
+  '..OHOWWRRWWOHO..',
+  '..OJWWWRRWWWJO..',
+  '.OJJWWWRRWWWJJO.',
+  '.OSJJWWWWWWJJSO.',
+  '..OOJJJJJJJJOO..',
+  '...OKKKKKKKKO...',
+  '...OKKKKKKKKO...',
+  '....OSSOOSSO....',
+  '....OSSOOSSO....',
+  '....OBBOOBBO....',
+  '....OOOOOOOO....'
+];
+function drawRyo(blink = false) {
+  const hair = mix(PAL.info, PAL.n900, .3), skin = mix(PAL.coral3, PAL.ink, .72);
+  const pal = {
+    O: PAL.outline, H: hair, h: mix(PAL.info, PAL.ink, .35), S: skin, E: blink ? skin : PAL.warn,
+    m: PAL.coral7, W: PAL.ink, R: PAL.coral, J: PAL.plum4, K: PAL.n600, B: PAL.n900
+  };
+  const [c, g] = makeCanvas(16, 24);
+  // Bass behind her: neck over the right shoulder, body at the hip. Drawn first so she sits in front.
+  for (let y = 1; y <= 13; y++) { const x = 15 - Math.floor((y - 1) / 4); px(g, x - 1, y, PAL.plum3, 2, 1); }
+  px(g, 14, 0, PAL.ink2, 2, 1);
+  for (let y = 14; y < 21; y++) for (let x = 11; x < 16; x++) if (((x + .5 - 13.5) / 2.6) ** 2 + ((y + .5 - 17.5) / 3.2) ** 2 <= 1) px(g, x, y, PAL.coral7);
+  RYO_ROWS.forEach((r, y) => { for (let x = 0; x < 16; x++) { const col = pal[r[x]]; if (col) px(g, x, y, col); } });
+  return c;
+}
+
+function drawHeart(full) {
+  const rows = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
+  return fromRows(rows, { '#': full ? PAL.coral : PAL.n600 }, null);
+}
+
+/* ---------- apply small page assets ---------- */
+function paintInto(canvas, src) {
+  const g = canvas.getContext('2d'); g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, canvas.width, canvas.height); g.drawImage(src, 0, 0);
+}
+paintInto($('#brand-bloub'), BLOUB.idle);
+$$('.bloub-portrait').forEach(c => paintInto(c, BLOUB.happy));
+(() => {
+  const link = document.createElement('link');
+  link.rel = 'icon'; link.href = upscale(BLOUB.idle, 3).toDataURL();
+  document.head.appendChild(link);
+})();
+if (!REDUCE) {
+  setInterval(() => {
+    paintInto($('#brand-bloub'), BLOUB.blink);
+    setTimeout(() => paintInto($('#brand-bloub'), BLOUB.idle), 140);
+  }, 3800);
+}
+
+// Dithered edge (hero -> page) and soft chat wallpaper.
+(() => {
+  const [c, g] = makeCanvas(32, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 32; x++) if (dither(x, y) < (y + 1) / 16) px(g, x, y, PAL.n800);
+  document.documentElement.style.setProperty('--dither', `url(${c.toDataURL()})`);
+  const [c2, g2] = makeCanvas(16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (dither(x, y) < .06) px(g2, x, y, PAL.n700);
+  $('.chat').style.setProperty('--dither-soft', `url(${c2.toDataURL()})`);
+})();
+
+/* ---------- section atmospheres ---------- */
+// Seigaiha (青海波) wave pattern: overlapping ringed half-circles, tiled behind the command deck.
+(() => {
+  const T = 16, R = 8, [c, g] = makeCanvas(T, T), centres = [];
+  for (let j = -1; j <= 3; j++) for (let i = -1; i <= 2; i++) centres.push([i * T + (j & 1 ? R : 0), j * R]);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    let d = -1;   // the lowest circle covering the pixel sits on top
+    for (const [cx, cy] of centres) { const e = Math.hypot(x + .5 - cx, y + .5 - cy); if (e < R) d = e; }
+    if (d >= 0 && Math.floor(d) % 3 === 0) px(g, x, y, PAL.n700);
+  }
+  $('#commands').style.setProperty('--tone', `url(${c.toDataURL()})`);
+})();
+
+// Manga speed lines radiating from the centre, thresholded so the edges stay hard pixels.
+(() => {
+  const W = 320, H = 200, [c, g] = makeCanvas(W, H), cx = W / 2, cy = H / 2, R = 400;
+  for (let i = 0; i < 90; i++) {
+    const a = (i / 90) * Math.PI * 2 + rand(-.02, .02), w = rand(.004, .018), r0 = rand(40, 120);
+    g.fillStyle = Math.random() < .18 ? PAL.plum : PAL.n700;
+    g.beginPath();
+    g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+    g.lineTo(cx + Math.cos(a - w) * R, cy + Math.sin(a - w) * R);
+    g.lineTo(cx + Math.cos(a + w) * R, cy + Math.sin(a + w) * R);
+    g.fill();
+  }
+  const img = g.getImageData(0, 0, W, H), d = img.data;
+  for (let i = 3; i < d.length; i += 4) d[i] = d[i] > 110 ? 255 : 0;
+  g.putImageData(img, 0, 0);
+  $('.how .speed').style.setProperty('--speed', `url(${c.toDataURL()})`);
+})();
+
+// Pixel skyline above the footer: far row, near row, a few lit windows.
+(() => {
+  const W = 240, H = 48, [c, g] = makeCanvas(W, H);
+  const row = (col, minH, maxH, lit) => {
+    for (let x = 0; x < W;) {
+      const w = Math.floor(rand(10, 26)), h = Math.floor(rand(minH, maxH));
+      px(g, x, H - h, col, Math.min(w, W - x), h);
+      if (Math.random() < .35) px(g, x + (w >> 1), H - h - 4, col, 1, 4);   // antenna
+      if (lit) for (let wy = H - h + 3; wy < H - 3; wy += 4) for (let wx = x + 2; wx < x + w - 2; wx += 3)
+        if (Math.random() < .12) px(g, wx, wy, Math.random() < .7 ? PAL.warn : PAL.coral3);
+      x += w + (Math.random() < .3 ? 2 : 0);
+    }
+  };
+  row(PAL.n700, 26, 44, false);
+  row(PAL.n800, 12, 30, true);
+  px(g, 0, H - 2, PAL.n800, W, 2);
+  document.documentElement.style.setProperty('--skyline', `url(${c.toDataURL()})`);
+})();
+
+// Pixel airship: dithered coral envelope, tail fins, lit gondola, two-frame propeller. Nose points left.
+function drawAirship(frame) {
+  const W = 56, H = 28, [c, g] = makeCanvas(W, H);
+  const grid = [...Array(H)].map(() => Array(W).fill(null));
+  const set = (x, y, col) => { if (x >= 0 && y >= 0 && x < W && y < H) grid[y][x] = col; };
+  for (let y = 1; y <= 6; y++) for (let x = Math.round(47 - (y - 1) * 1.6); x <= 48; x++) { set(x, y, PAL.coral7); set(x, 20 - y, PAL.coral7); }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const nx = (x + .5 - 24) / 20, ny = (y + .5 - 10) / 8;
+    if (nx * nx + ny * ny > 1) continue;
+    const t = ny * .7 + nx * .3;   // light from the upper left
+    let col = PAL.coral;
+    if (dither(x, y) < (t - .15) * 1.6) col = PAL.coral7;
+    else if (t < -.4 && dither(x, y) < (-.4 - t) * 3) col = PAL.coral3;
+    if (x === 31 || x === 32) col = t > .3 ? PAL.ink2 : PAL.ink;   // hull band
+    set(x, y, col);
+  }
+  set(18, 18, PAL.outline); set(29, 18, PAL.outline);   // rigging
+  for (let y = 19; y <= 23; y++) for (let x = 17; x <= 30; x++) set(x, y, y === 23 ? PAL.plum : PAL.plum4);
+  for (let x = 19; x <= 28; x += 3) set(x, 21, PAL.warn);
+  set(31, 21, PAL.n950);
+  if (frame) for (let y = 18; y <= 24; y++) set(32, y, PAL.ink2);
+  else { set(32, 20, PAL.ink2); set(32, 21, PAL.ink2); set(32, 22, PAL.ink2); set(33, 21, PAL.ink2); }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (grid[y][x]) { px(g, x, y, grid[y][x]); continue; }
+    const n = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => grid[y + dy] && grid[y + dy][x + dx] && grid[y + dy][x + dx] !== PAL.outline);
+    if (n) px(g, x, y, PAL.outline);
+  }
+  return c;
+}
+const AIRSHIP = [drawAirship(0), drawAirship(1)];
+const airshipCanvas = $('.airship canvas');
+function paintAirship(f) {
+  const g = airshipCanvas.getContext('2d');
+  g.clearRect(0, 0, 56, 28); g.drawImage(AIRSHIP[f], 0, 0);
+}
+paintAirship(1);
+
+// Starfighter seen from behind: X-foil wings with coral stripes, four glowing engines, wingtip cannons.
+function drawFighter(frame) {
+  const W = 48, H = 32, [c, g] = makeCanvas(W, H);
+  const grid = [...Array(H)].map(() => Array(W).fill(null));
+  const set = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x >= 0 && y >= 0 && x < W && y < H) grid[y][x] = col; };
+  const line = (x0, y0, x1, y1, th, colAt) => {
+    const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
+      for (let k = 0; k < th; k++) set(x, y + k, colAt(t, k));
+    }
+  };
+  // four wings, root at the fuselage, tip out at the corners
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => {
+    const rx = 24 + sx * 2, ry = 15 + sy * 2, tx = 24 + sx * 20, ty = 15 + sy * 11;
+    line(rx, ry, tx, ty, 3, (t, k) => (t > .45 && t < .62) ? PAL.coral : (k === 2 ? PAL.plum3 : PAL.ink2));
+    for (let k = -2; k <= 3; k++) set(tx, ty + k, k === -2 || k === 3 ? PAL.coral3 : PAL.ink2);   // cannon
+  });
+  // fuselage
+  for (let y = 9; y <= 22; y++) for (let x = 22; x <= 26; x++) set(x, y, x === 22 ? PAL.ink : x === 26 ? PAL.plum3 : PAL.ink2);
+  for (let y = 12; y <= 19; y++) for (let x = 23; x <= 25; x++) set(x, y, PAL.n700);
+  set(24, 15, PAL.coral); set(24, 16, PAL.coral);
+  // engines: dark ring, flickering hot core
+  [[18, 11], [30, 11], [18, 19], [30, 19]].forEach(([ex, ey]) => {
+    for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) {
+      const d = x * x + y * y;
+      if (d <= 5) set(ex + x, ey + y, d <= 1 ? (frame ? PAL.warn : PAL.ink) : d <= 2 ? PAL.coral3 : PAL.n700);
+    }
+  });
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (grid[y][x]) { px(g, x, y, grid[y][x]); continue; }
+    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => grid[y + dy] && grid[y + dy][x + dx])) px(g, x, y, PAL.outline);
+  }
+  return c;
+}
+const FIGHTER = [drawFighter(0), drawFighter(1)];
+const fighterCanvas = $('.fighter canvas');
+function paintFighter(f) {
+  const g = fighterCanvas.getContext('2d');
+  g.clearRect(0, 0, 48, 32); g.drawImage(FIGHTER[f], 0, 0);
+}
+paintFighter(1);
+
+// Twinkling pixel sparks (CSS-animated; static under reduced motion).
+$$('.sparks').forEach(layer => {
+  const cols = [PAL.ink, PAL.coral3, PAL.warn, PAL.plum3];
+  for (let i = 0; i < 22; i++) {
+    const s = document.createElement('i');
+    s.className = 'spark' + (Math.random() < .55 ? ' sm' : '');
+    s.style.left = rand(2, 98).toFixed(1) + '%';
+    s.style.top = rand(3, 70).toFixed(1) + '%';
+    s.style.color = pick(cols);
+    s.style.animationDelay = rand(0, 2.4).toFixed(2) + 's';
+    s.style.animationDuration = rand(1.8, 3.6).toFixed(2) + 's';
+    layer.appendChild(s);
+  }
+});
+
+// Marquee tracks: repeat the phrase until it covers the widest screen, then duplicate for a seamless loop.
+$$('.marquee-track').forEach(track => {
+  const unit = track.firstElementChild, base = unit.innerHTML;
+  let n = 1;
+  const need = Math.max(1800, innerWidth * 1.3);
+  while (unit.scrollWidth < need && n < 8) { unit.innerHTML += base; n++; }
+  track.appendChild(unit.cloneNode(true));
+});
+
+/* =====================================================================
+   Progress (unlocked commands)
+   ===================================================================== */
+const unlocked = new Set((store.get('ad_unlocked', []) || []).filter(id => CMD[id]));
+const fresh = new Set();
+const cards = $$('#cards .card');
+const segs = $('#segs');
+for (let i = 0; i < ALL.length; i++) segs.appendChild(document.createElement('i'));
+
+// Deck filters
+const filterBtns = $$('.filter');
+filterBtns.forEach(btn => btn.addEventListener('click', () => {
+  const f = btn.dataset.filter;
+  filterBtns.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+  cards.forEach(card => {
+    const id = card.dataset.id, isBonus = id.startsWith('bonus-');
+    card.hidden = !(f === 'all' || (f === 'core' && !isBonus) || f === id);
+  });
+  if (window.ScrollTrigger) ScrollTrigger.refresh();
+}));
+
+function updateDeck() {
+  cards.forEach(card => {
+    const id = card.dataset.id, on = unlocked.has(id);
+    card.classList.toggle('is-cleared', on);
+    $('.chip', card).textContent = on ? 'Cleared' : 'Locked';
+    drawIconTile(id, $('.ico', card), false);
+  });
+  $$('i', segs).forEach((s, i) => s.classList.toggle('on', i < unlocked.size));
+  $('#deck-count').textContent = unlocked.size;
+  renderSlots();
+}
+function saveUnlocked() { store.set('ad_unlocked', [...unlocked]); }
+$('#reset-btn').addEventListener('click', () => { unlocked.clear(); saveUnlocked(); updateDeck(); });
+
+/* =====================================================================
+   Chiptune SFX (WebAudio, generated)
+   ===================================================================== */
+const Sfx = (() => {
+  let ctx = null, master = null, muted = store.get('ad_muted', false);
+  let soloBus = null, soloEnd = 0;   // bass solo routing, so muting can cut it mid-riff
+  function ensure() {
+    if (!ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ctx = new AC(); master = ctx.createGain(); master.gain.value = .14; master.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  function tone(f0, f1, dur, type = 'square', vol = 1, when = 0) {
+    if (muted) return; const c = ensure(); if (!c) return;
+    const t = c.currentTime + when, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + .02);
+  }
+  function noise(dur, vol = 1) {
+    if (muted) return; const c = ensure(); if (!c) return;
+    const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+    const s = c.createBufferSource(), g = c.createGain(); s.buffer = buf; g.gain.value = vol;
+    s.connect(g).connect(master); s.start();
+  }
+  return {
+    unlock: ensure,
+    get muted() { return muted; },
+    toggle() {
+      muted = !muted; store.set('ad_muted', muted);
+      if (muted && soloBus) { soloBus.gain.setValueAtTime(0, ctx.currentTime); soloBus = null; soloEnd = 0; }
+      return muted;
+    },
+    jump() { tone(330, 700, .12); },
+    jump2() { tone(560, 1180, .1, 'square', .8); },
+    pick() { [660, 880, 1320].forEach((f, i) => tone(f, f, .07, 'square', .8, i * .06)); },
+    hit() { noise(.18, .9); tone(220, 55, .25, 'sawtooth', .6); },
+    start() { [262, 392, 523].forEach((f, i) => tone(f, f, .09, 'square', .7, i * .08)); },
+    over() { [392, 330, 262, 196].forEach((f, i) => tone(f, f * .97, .2, 'triangle', 1, i * .17)); },
+    fanfare() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, f, .12, 'square', .8, i * .1)); },
+    bass() { [98, 123, 147, 196, 147].forEach((f, i) => tone(f, f, .16, 'triangle', 1, i * .11)); },
+    // Cheat code: a ~10 s bass solo (E minor pentatonic riff at 150 bpm, drums underneath).
+    bassSolo() {
+      const c = ensure(); if (!c || muted) return;
+      if (soloBus && c.currentTime < soloEnd) return;   // already playing
+      const play = () => {
+        soloBus = c.createGain(); soloBus.gain.value = 1.6; soloBus.connect(master);
+        const bus = soloBus, T = c.currentTime + .06, E = .2;   // eighth note at 150 bpm
+        const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+        // Plucked bass: saw + octave square through a closing low-pass, so it cuts through small speakers.
+        function pluck(m, t, dur, slideTo) {
+          const f = hz(m), o1 = c.createOscillator(), o2 = c.createOscillator();
+          const lp = c.createBiquadFilter(), g = c.createGain(), g2 = c.createGain();
+          o1.type = 'sawtooth'; o2.type = 'square';
+          o1.frequency.setValueAtTime(f, t); o2.frequency.setValueAtTime(f * 2, t);
+          if (slideTo) { o1.frequency.exponentialRampToValueAtTime(hz(slideTo), t + dur); o2.frequency.exponentialRampToValueAtTime(hz(slideTo) * 2, t + dur); }
+          g2.gain.value = .3;
+          lp.type = 'lowpass'; lp.Q.value = 7;
+          lp.frequency.setValueAtTime(2600, t); lp.frequency.exponentialRampToValueAtTime(420, t + Math.min(dur, .35));
+          g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.9, t + .006);
+          g.gain.exponentialRampToValueAtTime(.45, t + .08); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+          o1.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(bus);
+          o1.start(t); o2.start(t); o1.stop(t + dur + .02); o2.stop(t + dur + .02);
+        }
+        function kick(t) {
+          const o = c.createOscillator(), g = c.createGain();
+          o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + .12);
+          g.gain.setValueAtTime(.8, t); g.gain.exponentialRampToValueAtTime(.0001, t + .16);
+          o.connect(g).connect(bus); o.start(t); o.stop(t + .18);
+        }
+        const hatBuf = c.createBuffer(1, Math.floor(c.sampleRate * .04), c.sampleRate);
+        hatBuf.getChannelData(0).forEach((_, i, d) => { d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); });
+        function hat(t) {
+          const s = c.createBufferSource(), hp = c.createBiquadFilter(), g = c.createGain();
+          s.buffer = hatBuf; hp.type = 'highpass'; hp.frequency.value = 7000; g.gain.value = .16;
+          s.connect(hp).connect(g).connect(bus); s.start(t);
+        }
+
+        // Riff: 4 bars of eighths, bar 1 again, a 16th-note run up the neck, then a long note sliding down.
+        const bars = [
+          [40, 40, 52, 40, 50, 40, 47, 45],
+          [40, 40, 52, 40, 55, 52, 50, 47],
+          [45, 45, 57, 45, 55, 45, 52, 50],
+          [47, 47, 59, 47, 57, 55, 52, 50],
+          [40, 40, 52, 40, 50, 40, 47, 45]
+        ];
+        let t = T;
+        bars.flat().forEach((m, i) => {
+          pluck(m, t, E * .85);
+          if (i % 4 === 0) kick(t);
+          if (i % 2 === 1) hat(t);
+          t += E;
+        });
+        const run = [64, 62, 59, 57, 55, 52, 50, 47, 45, 47, 50, 52, 55, 57, 59, 62];
+        run.forEach((m, i) => { pluck(m, t, E * .48); if (i % 4 === 0) kick(t); hat(t); t += E / 2; });
+        kick(t); pluck(64, t, 1.1, 40);   // final note slides from E4 down to E2
+        soloEnd = t + 1.2;
+      };
+      if (c.state === 'running') play(); else c.resume().then(play);
+    }
+  };
+})();
+
+/* =====================================================================
+   DOM: HUD, toast, overlays
+   ===================================================================== */
+const hero = $('#play'), heroCopy = $('#hero-copy'), hud = $('#hud'), press = $('#press');
+const toastEl = $('#toast'), live = $('#live');
+const hearts = $('#hearts'), slots = $('#slots');
+const heartCanvases = [0, 1, 2].map(() => { const c = document.createElement('canvas'); c.width = 7; c.height = 6; c.className = 'pixelated'; hearts.appendChild(c); return c; });
+const slotCanvases = ALL.map((cmd, i) => {
+  if (i === COMMANDS.length) { const gap = document.createElement('span'); gap.className = 'gap'; slots.appendChild(gap); }
+  const c = document.createElement('canvas'); c.width = 13; c.height = 13; c.className = 'pixelated'; c.title = cmd.cmd; slots.appendChild(c); return c;
+});
+const HEART_ON = drawHeart(true), HEART_OFF = drawHeart(false);
+
+function renderSlots() {
+  ALL.forEach((cmd, i) => { drawIconTile(cmd.id, slotCanvases[i], !unlocked.has(cmd.id)); slotCanvases[i].classList.toggle('off', !unlocked.has(cmd.id)); });
+  $('#hud-count').textContent = `${unlocked.size}/${ALL.length}`;
+}
+function renderHearts(n) { heartCanvases.forEach((c, i) => paintInto(c, i < n ? HEART_ON : HEART_OFF)); }
+
+function showEl(el) {
+  el.hidden = false;
+  if (HAS_GSAP && !REDUCE) { gsap.killTweensOf(el); gsap.fromTo(el, { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: .3, ease: 'steps(3)' }); }
+  else { el.style.opacity = 1; el.style.visibility = 'visible'; }
+}
+function hideEl(el) {
+  if (HAS_GSAP && !REDUCE) { gsap.killTweensOf(el); gsap.to(el, { autoAlpha: 0, y: -10, duration: .22, ease: 'steps(3)', onComplete: () => { el.hidden = true; } }); }
+  else el.hidden = true;
+}
+
+let toastTl = null;
+function toast(title, sub = '', color = PAL.ink, hold = 1.6) {
+  toastEl.innerHTML = '';
+  const t1 = document.createElement('div'); t1.className = 't1'; t1.textContent = title;
+  toastEl.style.setProperty('--toast', color);
+  toastEl.appendChild(t1);
+  if (sub) { const t2 = document.createElement('div'); t2.className = 't2'; t2.textContent = sub; toastEl.appendChild(t2); }
+  live.textContent = sub ? `${title}. ${sub}` : title;
+  if (HAS_GSAP && !REDUCE) {
+    if (toastTl) toastTl.kill();
+    toastTl = gsap.timeline()
+      .fromTo(toastEl, { autoAlpha: 0, scale: .6 }, { autoAlpha: 1, scale: 1, duration: .24, ease: 'steps(3)' })
+      .to(toastEl, { autoAlpha: 0, duration: .2, ease: 'steps(2)', delay: hold, onComplete: () => { toastEl.innerHTML = ''; } });
+  } else {
+    clearTimeout(toast._t); toast._t = setTimeout(() => { toastEl.innerHTML = ''; }, hold * 1000 + 400);
+  }
+}
+
+const soundBtn = $('#sound-btn');
+function syncSoundBtn() { soundBtn.textContent = Sfx.muted ? 'SFX OFF' : 'SFX ON'; soundBtn.setAttribute('aria-pressed', String(!Sfx.muted)); }
+syncSoundBtn();
+soundBtn.addEventListener('click', () => { Sfx.toggle(); syncSoundBtn(); });
+
+updateDeck();
+
+/* =====================================================================
+   Achievements (saved in this browser only)
+   ===================================================================== */
+const ACH = [
+  { id: 'hop', name: 'First hop', desc: 'Jump in the intro game.', color: PAL.info, rows: [
+    '....#....', '...###...', '..#####..', '.#######.', '....#....', '....#....', '....#....', '...###...', '.........'] },
+  { id: 'orb', name: 'Collector', desc: 'Grab a command orb.', color: PAL.warn, rows: [
+    '...###...', '.#######.', '.#+#####.', '#+#######', '#+#######', '#########', '.#######.', '.#######.', '...###...'] },
+  { id: 'gem', name: 'Gem hunter', desc: 'Grab a rare bonus gem.', color: PAL.coral3, rows: [
+    '.........', '..#####..', '.#+#####.', '#+#######', '.#######.', '..#####..', '...###...', '....#....', '.........'] },
+  { id: 'ryo', name: 'Borrowed ¥1000', desc: 'Catch Ryo in a run.', color: PAL.info, rows: [
+    '#.......#', '.#.....#.', '..#...#..', '...#.#...', '.#######.', '....#....', '.#######.', '....#....', '....#....'] },
+  { id: 'full', name: 'Full deck', desc: 'Clear all 11 commands.', color: PAL.ok, rows: [
+    '.........', '........#', '.......##', '#.....##.', '##...##..', '.##.##...', '..###....', '...#.....', '.........'] },
+  { id: 'score', name: 'High score', desc: 'Score 3,000 in one run.', color: PAL.warn, rows: [
+    '#########', '#.#+###.#', '#.#+###.#', '.#######.', '..#####..', '...###...', '....#....', '..#####..', '.#######.'] },
+  { id: 'nohit', name: 'Untouchable', desc: 'Reach 1,500 without a hit.', color: PAL.coral, rows: [
+    '#########', '#+#######', '#+#######', '#+#######', '.#######.', '.#######.', '..#####..', '...###...', '....#....'] },
+  { id: 'konami', name: 'Old habits', desc: 'Enter the classic code.', secret: true, color: PAL.plum3, rows: [
+    '.........', '.#######.', '##+######', '#+++###+#', '##+###+##', '#########', '##.....##', '.........', '.........'] },
+  { id: 'tourist', name: 'Tourist', desc: 'Scroll to the very end.', color: PAL.ink2, rows: [
+    '#........', '#####....', '##+####..', '#######..', '#####....', '#........', '#........', '#........', '#........'] }
+];
+const ACH_BY = Object.fromEntries(ACH.map(a => [a.id, a]));
+const earned = new Set((store.get('ad_ach', []) || []).filter(id => ACH_BY[id]));
+ACH.forEach(a => { a.art = fromRows(a.rows, { '#': a.color, '+': PAL.ink }); });
+const badgeEls = {};
+
+(function buildBadges() {
+  const list = $('#badges');
+  $('#ach-total').textContent = ACH.length;
+  ACH.forEach(a => {
+    const li = document.createElement('li'); li.className = 'badge';
+    const c = document.createElement('canvas'); c.width = 9; c.height = 9; c.setAttribute('aria-hidden', 'true');
+    paintInto(c, a.art);
+    const b = document.createElement('b'), s = document.createElement('span');
+    li.append(c, b, s); list.appendChild(li);
+    badgeEls[a.id] = { li, b, s };
+  });
+})();
+function renderBadges() {
+  ACH.forEach(a => {
+    const got = earned.has(a.id), el = badgeEls[a.id];
+    el.li.classList.toggle('got', got); el.li.classList.toggle('locked', !got);
+    el.li.style.setProperty('--badge', a.color);
+    const hidden = a.secret && !got;
+    el.b.textContent = hidden ? '???' : a.name;
+    el.s.textContent = hidden ? 'A secret.' : a.desc;
+    el.li.setAttribute('aria-label', `${hidden ? 'Secret achievement' : a.name}: ${got ? 'unlocked' : 'locked'}`);
+  });
+  $('#ach-count').textContent = earned.size;
+}
+renderBadges();
+
+const achPop = $('#ach-pop'), achQueue = [];
+let achBusy = false;
+function nextPop() {
+  if (achBusy || !achQueue.length) return;
+  achBusy = true;
+  const a = achQueue.shift();
+  achPop.innerHTML = '';
+  const c = document.createElement('canvas'); c.width = 9; c.height = 9; paintInto(c, a.art);
+  const txt = document.createElement('div');
+  const sm = document.createElement('small'); sm.textContent = 'Achievement unlocked';
+  const b = document.createElement('b'); b.textContent = a.name;
+  txt.append(sm, b); achPop.append(c, txt);
+  live.textContent = `Achievement unlocked: ${a.name}`;
+  const done = () => { achBusy = false; nextPop(); };
+  if (HAS_GSAP && !REDUCE) {
+    gsap.timeline({ onComplete: done })
+      .fromTo(achPop, { autoAlpha: 0, y: 30 }, { autoAlpha: 1, y: 0, duration: .3, ease: 'steps(4)' })
+      .to(achPop, { autoAlpha: 0, y: 12, duration: .25, ease: 'steps(3)', delay: 2.4 });
+  } else {
+    achPop.style.visibility = 'visible'; achPop.style.opacity = 1;
+    setTimeout(() => { achPop.style.visibility = 'hidden'; achPop.style.opacity = 0; done(); }, 2800);
+  }
+}
+function award(id) {
+  if (earned.has(id) || !ACH_BY[id]) return;
+  earned.add(id); store.set('ad_ach', [...earned]);
+  renderBadges();
+  achQueue.push(ACH_BY[id]); nextPop();
+}
+if (unlocked.size === ALL.length) award('full');
+
+// Tourist: reach the final section.
+new IntersectionObserver((entries, obs) => {
+  if (entries.some(e => e.isIntersecting)) { award('tourist'); obs.disconnect(); }
+}, { threshold: .4 }).observe($('#start'));
+
+/* ---------- Konami code: ↑ ↑ ↓ ↓ ← → ← → B A ---------- */
+const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+let konamiAt = 0;
+addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  // Once the code is under way, its arrow keys stop scrolling the page.
+  if (konamiAt >= 1 && e.code === KONAMI[konamiAt] && e.code.startsWith('Arrow') && !isInteractive(e.target)) e.preventDefault();
+  if (e.code === KONAMI[konamiAt]) konamiAt++;
+  else if (e.code === 'ArrowUp') konamiAt = konamiAt === 2 ? 2 : 1;   // ↑↑↑ still counts as the first two
+  else konamiAt = 0;
+  if (konamiAt === KONAMI.length) { konamiAt = 0; cheatCode(); }
+});
+function cheatCode() {
+  Sfx.bassSolo();
+  const inRun = game ? game.cheat() : false;
+  const sub = Sfx.muted ? 'Sound is off. Press M to turn it on, then try again.'
+    : game ? (inRun ? 'Ryo mode: 2× score this run' : 'Ryo mode: 2× score next run') : 'Ryo approves.';
+  toast('Cheat code accepted', sub, PAL.info, 2.6);
+  award('konami');
+  if (!HAS_GSAP || REDUCE) return;
+  const cols = [PAL.coral, PAL.coral3, PAL.info, PAL.warn, PAL.ink, PAL.plum3];
+  for (let i = 0; i < 48; i++) {
+    const p = document.createElement('i'); p.className = 'confetti'; p.setAttribute('aria-hidden', 'true');
+    p.style.background = pick(cols); document.body.appendChild(p);
+    const x0 = innerWidth / 2 + rand(-60, 60);
+    gsap.timeline({ onComplete: () => p.remove() })
+      .set(p, { x: x0, y: -12, rotate: 0 })
+      .to(p, { x: x0 + rand(-innerWidth * .5, innerWidth * .5), y: innerHeight + 20, rotate: rand(-540, 540), duration: rand(1.4, 2.4), ease: 'power1.in' });
+  }
+}
+
+/* ---------- Pause decorative CSS loops in sections that are off screen ---------- */
+{
+  const io = new IntersectionObserver((entries) => entries.forEach(e => e.target.classList.toggle('is-off', !e.isIntersecting)));
+  $$('.section').forEach(s => io.observe(s));
+}
+
+/* =====================================================================
+   The game world (Three.js, rendered at low resolution)
+   ===================================================================== */
+const canvas = $('#world');
+let game = null;
+
+function noGame(msg) {
+  hero.classList.add('no-webgl');
+  press.hidden = true;
+  $('#play-btn').hidden = true;
+  $('.hint').hidden = true;
+  const note = document.createElement('p'); note.className = 'webgl-note';
+  note.textContent = msg;
+  hero.appendChild(note);
+}
+
+async function bootGame() {
+  $('#play-btn').disabled = true;
+  try { THREE = await import('three'); }
+  catch { noGame('The intro game could not load. Everything else works fine.'); return; }
+  let renderer = null;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' }); }
+  catch { renderer = null; }
+  if (!renderer) { noGame('The intro game needs WebGL. Everything else works fine.'); return; }
+  game = createGame(renderer);
+  $('#play-btn').disabled = false;
+  bindGameInput();
+}
+bootGame();
+
+function createGame(renderer) {
+  renderer.setPixelRatio(1);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setClearColor(PAL.n900);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(FOG, 16, 70);
+  const camera = new THREE.PerspectiveCamera(50, 1, .1, 600);
+  const TAN = Math.tan(THREE.MathUtils.degToRad(25));
+
+  scene.add(new THREE.AmbientLight(PAL.plum3, 1.25));
+  const moonLight = new THREE.DirectionalLight('#b9c6f0', 1.7); moonLight.position.set(-6, 10, 8); scene.add(moonLight);
+  const rimLight = new THREE.DirectionalLight(PAL.coral, 1.1); rimLight.position.set(8, 3, -6); scene.add(rimLight);
+
+  const view = { H: 10, W: 17.8, d: 10.7, camY: 3.5, aspect: 1.78 };
+  const halfW = (z) => (view.W / 2) * (view.d - z) / view.d;
+
+  function tex(c, rx = 1, ry = 1) {
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+    return t;
+  }
+
+  /* ---------- sky, moon, mountains ---------- */
+  const skyCanvas = (() => {
+    const W = 256, H = 768, [c, g] = makeCanvas(W, H);
+    const stops = [[0, '#06040b'], [.3, PAL.n900], [.4, PAL.n700], [.455, PAL.plum], [.49, mix(PAL.plum, PAL.coral, .45)], [.5, FOG], [1, FOG]];
+    for (let y = 0; y < H; y++) {
+      const v = y / H; let i = 0; while (i < stops.length - 2 && v > stops[i + 1][0]) i++;
+      const [v0, c0] = stops[i], [v1, c1] = stops[i + 1];
+      const t = Math.min(1, Math.max(0, (v - v0) / (v1 - v0)));
+      for (let x = 0; x < W; x++) px(g, x, y, dither(x, y) < t ? c1 : c0);
+    }
+    for (let i = 0; i < 260; i++) {
+      const x = Math.floor(Math.random() * W), y = Math.floor(Math.random() * H * .46);
+      px(g, x, y, pick([PAL.ink, PAL.ink2, PAL.plum3, PAL.info]));
+    }
+    for (let i = 0; i < 12; i++) {
+      const x = 2 + Math.floor(Math.random() * (W - 4)), y = 2 + Math.floor(Math.random() * H * .42);
+      px(g, x, y, PAL.ink); px(g, x - 1, y, PAL.plum3); px(g, x + 1, y, PAL.plum3); px(g, x, y - 1, PAL.plum3); px(g, x, y + 1, PAL.plum3);
+    }
+    return c;
+  })();
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex(skyCanvas), fog: false, depthWrite: false }));
+  sky.position.z = -160; sky.renderOrder = -2; scene.add(sky);
+
+  const moonCanvas = (() => {
+    const [c, g] = makeCanvas(24, 24);
+    for (let y = 0; y < 24; y++) for (let x = 0; x < 24; x++) {
+      const d = Math.hypot(x + .5 - 12, y + .5 - 12);
+      if (d <= 9.5) {
+        let col = PAL.ink;
+        if ((x - 12) * .8 + (y - 12) * .5 > 3 && dither(x, y) < .55) col = PAL.ink2;
+        if (Math.hypot(x - 9, y - 9) < 2.1 || Math.hypot(x - 15, y - 14) < 1.6 || Math.hypot(x - 10, y - 16) < 1.2) col = PAL.ink2;
+        px(g, x, y, col);
+      } else if (d <= 11.5 && dither(x, y) < .3) px(g, x, y, PAL.plum3);
+    }
+    return c;
+  })();
+  const moon = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex(moonCanvas), transparent: true, alphaTest: .5, fog: false, depthWrite: false }));
+  moon.position.z = -150; moon.renderOrder = -1; scene.add(moon);
+
+  const mountainTex = (() => {
+    const W = 256, H = 64, [c, g] = makeCanvas(W, H), TAU = Math.PI * 2;
+    const back = (x) => 30 + 8 * Math.sin(TAU * x * 3 / W) + 5 * Math.sin(TAU * x * 7 / W + 1) + 2 * Math.sin(TAU * x * 17 / W);
+    const front = (x) => 17 + 6 * Math.sin(TAU * x * 4 / W + 2) + 3 * Math.sin(TAU * x * 11 / W);
+    const fuji = (x) => 56 - Math.abs(x - 86) * .75;
+    for (let x = 0; x < W; x++) {
+      const hb = Math.max(back(x), fuji(x));
+      for (let y = 0; y < H; y++) {
+        const hy = H - y;
+        if (hy <= front(x)) px(g, x, y, '#1f1731');
+        else if (hy <= hb) {
+          const snow = fuji(x) >= back(x) && hy > fuji(x) - 9;
+          px(g, x, y, snow ? (dither(x, y) < (hy - (fuji(x) - 9)) / 9 + .2 ? PAL.ink2 : PAL.plum3) : '#2c2244');
+        }
+      }
+    }
+    const t = tex(c); t.wrapT = THREE.ClampToEdgeWrapping; return t;
+  })();
+  const mountains = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: mountainTex, transparent: true, alphaTest: .5, fog: false }));
+  mountains.position.z = -110; scene.add(mountains);
+
+  /* ---------- ground ---------- */
+  const pavement = (() => {
+    const [c, g] = makeCanvas(16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const row = y >> 3, xs = (x + (row % 2) * 4) % 8;
+      let col = '#2d2344';
+      if (y % 8 === 0 || xs === 0) col = '#1b1429';
+      else if (y % 8 === 1) col = '#3a2d55';
+      else if (dither(x * 3, y * 5) < .08) col = '#251c3a';
+      px(g, x, y, col);
+    }
+    return c;
+  })();
+  const brick = (() => {
+    const [c, g] = makeCanvas(16, 32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 16; x++) {
+      const row = y >> 2, xs = (x + (row % 2) * 4) % 8;
+      let col = y < 12 ? '#3a2c50' : mix('#3a2c50', PAL.n950, (y - 12) / 26);
+      if (y % 4 === 0 || xs === 0) col = '#171122';
+      if (y === 0) col = PAL.coral7; if (y === 1) col = '#1b1429';
+      px(g, x, y, col);
+    }
+    return c;
+  })();
+  const ROAD_LEN = 90;
+  const roadTop = tex(pavement, ROAD_LEN, 3), roadFront = tex(brick, ROAD_LEN, 1);
+  const dark = new THREE.MeshLambertMaterial({ color: PAL.n950 });
+  const road = new THREE.Mesh(new THREE.BoxGeometry(ROAD_LEN, 2, 3), [
+    dark, dark, new THREE.MeshLambertMaterial({ map: roadTop }), dark, new THREE.MeshLambertMaterial({ map: roadFront }), dark
+  ]);
+  road.position.set(0, -1, 0); scene.add(road);
+
+  const fieldTex = (() => {
+    const [c, g] = makeCanvas(16, 16);
+    px(g, 0, 0, '#171124', 16, 16); px(g, 0, 0, '#2a2040', 16, 1); px(g, 0, 0, '#2a2040', 1, 16);
+    return tex(c, 200, 60);
+  })();
+  const field = new THREE.Mesh(new THREE.PlaneGeometry(400, 120), new THREE.MeshLambertMaterial({ map: fieldTex }));
+  field.rotation.x = -Math.PI / 2; field.position.set(0, -.02, -61.5); scene.add(field);
+
+  /* ---------- city: recycled rows of real 3D buildings ---------- */
+  const WALLS = ['#2a2040', '#30254a', '#251c38', '#352a50'];
+  const LIT = [PAL.warn, PAL.warn, mix(PAL.warn, PAL.ink, .45), PAL.coral3, PAL.info];
+  const buildings = [];
+  function makeBuilding(w, h, dep) {
+    const TW = w * 8, TH = h * 8;
+    const [c, g] = makeCanvas(TW, TH), [e, ge] = makeCanvas(TW, TH);
+    const wall = pick(WALLS);
+    px(g, 0, 0, wall, TW, TH); px(ge, 0, 0, '#000', TW, TH);
+    px(g, 0, 0, mix(wall, PAL.ink, .15), TW, 2);
+    const windows = [];
+    for (let y = 5; y < TH - 3; y += 4) for (let x = 2; x < TW - 2; x += 4) {
+      const lit = Math.random() < .36, col = pick(LIT);
+      windows.push({ x, y, lit, col });
+      px(g, x, y, lit ? col : '#120d1c', 2, 2);
+      if (lit) px(ge, x, y, col, 2, 2);
+    }
+    if (Math.random() < .35 && TW >= 24) {
+      const sx = 2 + Math.floor(Math.random() * (TW - 8)), sy = 6, sh = Math.min(TH - 10, 12 + Math.floor(Math.random() * 10));
+      const scol = pick([PAL.coral, PAL.coral, PAL.info, PAL.ok]);
+      px(g, sx, sy, scol, 4, sh); px(ge, sx, sy, scol, 4, sh);
+      for (let y = sy + 1; y < sy + sh - 1; y += 3) { if (Math.random() < .8) { const gx = sx + 1 + (Math.random() < .5 ? 0 : 1); px(g, gx, y, PAL.n900, 1, 2); px(ge, gx, y, '#000', 1, 2); } }
+    }
+    const map = tex(c), emap = tex(e);
+    const front = new THREE.MeshLambertMaterial({ map, emissiveMap: emap, emissive: 0xffffff, emissiveIntensity: .95 });
+    const side = new THREE.MeshLambertMaterial({ color: wall });
+    const roof = new THREE.MeshLambertMaterial({ color: mix(wall, PAL.ink, .12) });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, dep), [side, side, roof, side, front, side]);
+    mesh.position.y = h / 2;
+    const b = { mesh, w, c, g, e, ge, map, emap, windows };
+    buildings.push(b);
+    scene.add(mesh);
+    return { obj: mesh, w };
+  }
+
+  const rows = [];
+  function addRow(z, items, gapMin, gapMax, zJitter = 0) {
+    rows.push({ z, items, gapMin, gapMax, zJitter, nextX: 0 });
+  }
+  function placeItem(row, item) {
+    const x = row.nextX + item.w / 2;
+    item.obj.position.x = x; item.x = x;
+    item.obj.position.z = row.z + (row.zJitter ? rand(-row.zJitter, row.zJitter) : 0);
+    row.nextX = x + item.w / 2 + rand(row.gapMin, row.gapMax);
+  }
+  function layoutRows(camX) {
+    rows.forEach(row => { row.nextX = camX - halfW(row.z) - 6; row.items.forEach(it => placeItem(row, it)); });
+  }
+  function updateRows(camX) {
+    rows.forEach(row => {
+      const left = camX - halfW(row.z) - 6;
+      row.items.forEach(it => { if (it.x + it.w / 2 < left) placeItem(row, it); });
+    });
+  }
+
+  const nearRow = [], midRow = [], farRow = [];
+  for (let i = 0; i < 12; i++) nearRow.push(makeBuilding(Math.round(rand(3, 5)), Math.round(rand(3, 7)), Math.round(rand(3, 4))));
+  for (let i = 0; i < 14; i++) midRow.push(makeBuilding(Math.round(rand(4, 7)), Math.round(rand(5, 11)), Math.round(rand(3, 5))));
+  for (let i = 0; i < 16; i++) farRow.push(makeBuilding(Math.round(rand(5, 9)), Math.round(rand(7, 14)), Math.round(rand(4, 6))));
+  addRow(-8, nearRow, 1, 3, .8);
+  addRow(-15, midRow, .5, 2.5, 1.2);
+  addRow(-26, farRow, 0, 2, 1.5);
+
+  // Street lamps
+  const glowCanvas = (() => {
+    const [c, g] = makeCanvas(16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.hypot(x + .5 - 8, y + .5 - 8) / 8;
+      if (d < 1 && dither(x, y) < (1 - d) * .85) px(g, x, y, PAL.warn);
+    }
+    return c;
+  })();
+  const glowMat = new THREE.SpriteMaterial({ map: tex(glowCanvas), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: .55 });
+  const poleMat = new THREE.MeshLambertMaterial({ color: '#1b1429' });
+  const lampHeadMat = new THREE.MeshBasicMaterial({ color: PAL.warn });
+  const lamps = [];
+  for (let i = 0; i < 8; i++) {
+    const grp = new THREE.Group();
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(.18, 3.6, .18), poleMat); pole.position.y = 1.8;
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(.7, .14, .14), poleMat); arm.position.set(.3, 3.55, 0);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(.5, .18, .34), lampHeadMat); head.position.set(.55, 3.42, 0);
+    const glow = new THREE.Sprite(glowMat); glow.position.set(.55, 3.2, .1); glow.scale.set(2.6, 2.6, 1);
+    grp.add(pole, arm, head, glow); scene.add(grp);
+    lamps.push({ obj: grp, w: .8 });
+  }
+  addRow(-1.9, lamps, 8, 11);
+
+  // Torii gates, in brand coral
+  const toriiMat = new THREE.MeshLambertMaterial({ color: PAL.coral });
+  const toriiTop = new THREE.MeshLambertMaterial({ color: PAL.outline });
+  const toriis = [];
+  for (let i = 0; i < 3; i++) {
+    const grp = new THREE.Group();
+    const p1 = new THREE.Mesh(new THREE.BoxGeometry(.36, 4.2, .36), toriiMat); p1.position.set(-1.9, 2.1, 0);
+    const p2 = p1.clone(); p2.position.x = 1.9;
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(4.6, .28, .3), toriiMat); tie.position.y = 3.3;
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(5.2, .34, .44), toriiMat); beam.position.y = 4.05;
+    const kasagi = new THREE.Mesh(new THREE.BoxGeometry(6, .26, .5), toriiTop); kasagi.position.y = 4.35;
+    grp.add(p1, p2, tie, beam, kasagi); scene.add(grp);
+    toriis.push({ obj: grp, w: 6 });
+  }
+  addRow(-4, toriis, 30, 48);
+
+  // Sakura trees (sprites)
+  const treeCanvas = (() => {
+    const [c, g] = makeCanvas(32, 40);
+    const trunk = '#2a1d3a';
+    px(g, 15, 18, trunk, 3, 22); px(g, 12, 20, trunk, 3, 2); px(g, 18, 22, trunk, 3, 2);
+    const blobs = [[16, 12, 9], [8, 16, 6], [24, 16, 6], [11, 8, 6], [21, 8, 6]];
+    const inside = (x, y) => blobs.some(([cx, cy, r]) => (x + .5 - cx) ** 2 + (y + .5 - cy) ** 2 <= r * r);
+    const pale = mix(PAL.coral3, PAL.ink, .45);
+    for (let y = 0; y < 26; y++) for (let x = 0; x < 32; x++) {
+      if (inside(x, y)) {
+        const t = y / 24;
+        let col = dither(x, y) < t ? PAL.coral : (dither(x, y) < t + .35 ? PAL.coral3 : pale);
+        if (!inside(x + 1, y + 1)) col = PAL.coral7;
+        px(g, x, y, col);
+      }
+    }
+    return c;
+  })();
+  const treeMat = new THREE.SpriteMaterial({ map: tex(treeCanvas), transparent: true, alphaTest: .5 });
+  const trees = [];
+  for (let i = 0; i < 6; i++) {
+    const s = new THREE.Sprite(treeMat); s.scale.set(4, 5, 1); s.position.y = 2.5; scene.add(s);
+    trees.push({ obj: s, w: 4 });
+  }
+  addRow(-5.2, trees, 9, 20, .6);
+
+  /* ---------- petals ---------- */
+  const PETALS = REDUCE ? 0 : 70;
+  const petalGeo = new THREE.BufferGeometry();
+  const petalPos = new Float32Array(PETALS * 3), petalSeed = new Float32Array(PETALS);
+  for (let i = 0; i < PETALS; i++) { petalPos[i * 3] = rand(-14, 14); petalPos[i * 3 + 1] = rand(0, 10); petalPos[i * 3 + 2] = rand(-7, 2.5); petalSeed[i] = Math.random() * 10; }
+  petalGeo.setAttribute('position', new THREE.BufferAttribute(petalPos, 3));
+  const petals = new THREE.Points(petalGeo, new THREE.PointsMaterial({ color: PAL.coral3, size: 2, sizeAttenuation: false }));
+  if (PETALS) scene.add(petals);
+
+  /* ---------- player ---------- */
+  const F = Object.fromEntries(Object.entries(BLOUB).map(([k, v]) => [k, Array.isArray(v) ? v.map(c => tex(c)) : tex(v)]));
+  const playerMat = new THREE.MeshBasicMaterial({ map: F.idle, transparent: true, alphaTest: .5, fog: false });
+  const PLAYER_SIZE = 1.25;
+  const player = new THREE.Mesh(new THREE.PlaneGeometry(PLAYER_SIZE, PLAYER_SIZE), playerMat);
+  player.position.z = .35; scene.add(player);
+  const shadowCanvas = (() => { const [c, g] = makeCanvas(16, 6); for (let y = 0; y < 6; y++) for (let x = 0; x < 16; x++) if (((x + .5 - 8) / 8) ** 2 + ((y + .5 - 3) / 3) ** 2 <= 1) px(g, x, y, PAL.n950); return c; })();
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(1, .4), new THREE.MeshBasicMaterial({ map: tex(shadowCanvas), transparent: true, opacity: .55, depthWrite: false }));
+  shadow.rotation.x = -Math.PI / 2; shadow.position.set(0, .01, .35); scene.add(shadow);
+
+  /* ---------- obstacles, orbs, particles ---------- */
+  const crateCanvas = (() => {
+    const [c, g] = makeCanvas(16, 16);
+    px(g, 0, 0, '#1b1429', 16, 16); px(g, 1, 1, '#4a3a63', 14, 14);
+    px(g, 1, 5, '#3a2d50', 14, 1); px(g, 1, 10, '#3a2d50', 14, 1);
+    for (let i = 1; i < 15; i++) { px(g, i, i, '#6a5690'); px(g, 15 - i, i, '#6a5690'); }
+    px(g, 1, 1, PAL.warn, 2, 2); px(g, 13, 1, PAL.warn, 2, 2); px(g, 1, 13, PAL.warn, 2, 2); px(g, 13, 13, PAL.warn, 2, 2);
+    return c;
+  })();
+  const crateMats = { 1: new THREE.MeshLambertMaterial({ map: tex(crateCanvas, 1, 1) }), 2: new THREE.MeshLambertMaterial({ map: tex(crateCanvas, 1, 2) }) };
+  const crateGeo = { 1: new THREE.BoxGeometry(1, 1, 1), 2: new THREE.BoxGeometry(1, 2, 1) };
+  const crates = [];
+  function addCrate(x, h) {
+    let c = crates.find(k => !k.active && k.h === h);
+    if (!c) { c = { mesh: new THREE.Mesh(crateGeo[h], crateMats[h]), h, active: false }; scene.add(c.mesh); crates.push(c); }
+    c.active = true; c.x = x; c.mesh.visible = true; c.mesh.position.set(x, h / 2, 0);
+  }
+
+  const orbTex = Object.fromEntries(ALL.map(c => [c.id, tex(drawOrb(c.id))]));
+  const haloCanvas = (() => { const [c, g] = makeCanvas(16, 16); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x + .5 - 8, y + .5 - 8); if (d > 6.2 && d < 7.6) px(g, x, y, '#ffffff'); } return c; })();
+  const haloTex = tex(haloCanvas);
+  const orbs = [];
+  function addOrb(x, y, bonus = false) {
+    const pool = bonus ? BONUS : COMMANDS;
+    const locked = pool.filter(c => !unlocked.has(c.id) && !orbs.some(o => o.active && o.id === c.id));
+    const id = (locked.length ? pick(locked) : pick(pool)).id;
+    let o = orbs.find(k => !k.active);
+    if (!o) {
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: orbTex[id], transparent: true, alphaTest: .5, fog: false }));
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+      scene.add(sprite, halo);
+      o = { sprite, halo, active: false }; orbs.push(o);
+    }
+    o.active = true; o.id = id; o.x = x; o.y = y; o.phase = Math.random() * 6;
+    o.sprite.material.map = orbTex[id]; o.halo.material.color.set(CMD[id].color);
+    o.sprite.visible = o.halo.visible = true;
+    const s = CMD[id].bonus ? 1.1 : .95;
+    o.sprite.scale.set(s, s, 1);
+  }
+
+  /* ---------- Ryo: rare cameo ---------- */
+  const ryoTex = [tex(drawRyo(false)), tex(drawRyo(true))];
+  const ryoMat = new THREE.MeshBasicMaterial({ map: ryoTex[0], transparent: true, alphaTest: .5, fog: false });
+  const ryoMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1.5), ryoMat);
+  ryoMesh.visible = false; scene.add(ryoMesh);
+  const ryo = { active: false, x: 0, z: 0, last: -1e9, nextIdle: performance.now() + 7000, collectable: false };
+  function addRyo(x, z, collectable) {
+    Object.assign(ryo, { active: true, x, z, collectable });
+    ryoMesh.visible = true; ryoMesh.position.set(x, .75, z);
+    ryo.last = performance.now();
+  }
+  function hideRyo() { ryo.active = false; ryoMesh.visible = false; }
+  function collectRyo() {
+    hideRyo();
+    burst(ryo.x, .9, .3, [PAL.info, PAL.warn, PAL.ink], 22, 6);
+    G.bonus += 500; G.happy = .6; Sfx.bass(); award('ryo');
+    toast(pick(['Ryo borrowed ¥1000.', 'Ryo will pay you back. Someday.', 'Ryo found a nice patch of grass.']), '+500 · rare cameo', PAL.info, 1.6);
+  }
+
+  const partGeo = new THREE.BoxGeometry(.16, .16, .16);
+  const partMats = new Map();
+  const matFor = (col) => { if (!partMats.has(col)) partMats.set(col, new THREE.MeshBasicMaterial({ color: col })); return partMats.get(col); };
+  const parts = [];
+  function burst(x, y, z, colors, n, power = 6) {
+    for (let i = 0; i < n; i++) {
+      let p = parts.find(k => !k.active);
+      if (!p) { p = { mesh: new THREE.Mesh(partGeo, matFor(PAL.ink)), v: new THREE.Vector3(), active: false }; scene.add(p.mesh); parts.push(p); }
+      p.active = true; p.mesh.visible = true; p.mesh.material = matFor(pick(colors));
+      p.mesh.position.set(x + rand(-.2, .2), y + rand(0, .3), z);
+      p.v.set(rand(-.35, .7) * power, rand(.3, 1) * power, rand(-.3, .3) * power);
+      p.life = p.max = rand(.45, .9);
+    }
+  }
+
+  /* ---------- state ---------- */
+  const G = {
+    state: 'idle', x: 0, y: 0, vy: 0, onGround: true, jumps: 2, coyote: 0, buffer: 0, held: false,
+    speed: 0, t: 0, dist: 0, bonus: 0, lives: 3, inv: 0, anim: 0, land: 0, happy: 0, shake: 0,
+    nextSpawn: 0, patterns: 0, best: store.get('ad_best', 0) || 0, blink: 0, lastScore: -1, hits: 0, cheat: false
+  };
+  const scoreNow = () => Math.floor((G.dist + G.bonus) * (G.cheat ? 2 : 1));
+  let camX = 0, lift = 0;
+  const pad = (n) => String(Math.floor(n)).padStart(6, '0');
+  $('#hud-best').textContent = pad(G.best);
+
+  function resize() {
+    const w = hero.clientWidth, h = hero.clientHeight, aspect = w / h;
+    const H = Math.max(10, 11 / aspect);
+    view.H = H; view.W = H * aspect; view.aspect = aspect;
+    view.d = H / 2 / TAN; view.camY = H / 2 - 1.55;
+    const ppu = 16 * Math.max(1, Math.round(h / (H * 16 * 4.5)));
+    renderer.setSize(Math.round(view.W * ppu), Math.round(H * ppu), false);
+    camera.aspect = aspect; camera.updateProjectionMatrix();
+
+    const Dsky = view.d - sky.position.z;
+    sky.scale.set(2 * Dsky * TAN * aspect * 1.3, 12 * Dsky * TAN, 1);
+    const Dm = view.d - mountains.position.z;
+    const mw = 2 * Dm * TAN * aspect * 1.4;
+    mountains.scale.set(mw, 22, 1); mountains.position.y = 10;
+    mountainTex.repeat.set(mw / 88, 1);
+    const Dmoon = view.d - moon.position.z;
+    moon.scale.setScalar(2.1 * Dmoon / view.d);
+  }
+  resize();
+  camX = G.x + view.W * .25;
+  layoutRows(camX);
+  let resizeQueued = false;   // coalesce resize bursts into one re-layout per frame
+  addEventListener('resize', () => {
+    if (resizeQueued) return; resizeQueued = true;
+    requestAnimationFrame(() => { resizeQueued = false; resize(); });
+  });
+
+  function start() {
+    Sfx.unlock(); Sfx.start();
+    crates.forEach(c => { c.active = false; c.mesh.visible = false; });
+    orbs.forEach(o => { o.active = false; o.sprite.visible = o.halo.visible = false; });
+    hideRyo();
+    Object.assign(G, { state: 'playing', y: 0, vy: 0, onGround: true, jumps: 2, t: 0, dist: 0, bonus: 0, lives: 3, inv: 0, patterns: 0, lastScore: -1, buffer: 0, hits: 0, cheat: !!G.armed, armed: false });
+    G.nextSpawn = G.x + halfW(0) + 8;
+    renderHearts(3); renderSlots();
+    hideEl(heroCopy); press.hidden = true;
+    $('#over').hidden = true; $('#paused').hidden = true;
+    showEl(hud);
+    toast('Ready?', 'Jump the filler crates. Grab the orbs.', PAL.warn, .9);
+    setTimeout(() => { if (G.state === 'playing') toast('Go!', '', PAL.ok, .5); }, 1300);
+  }
+
+  function pause() {
+    if (G.state !== 'playing') return;
+    G.state = 'paused'; $('#paused').hidden = false;
+  }
+  function resume() {
+    if (G.state !== 'paused') return;
+    $('#paused').hidden = true; G.state = 'playing'; G.held = false;
+  }
+
+  function gameOver() {
+    G.state = 'over';
+    const score = scoreNow();
+    if (score > G.best) { G.best = score; store.set('ad_best', score); }
+    $('#hud-best').textContent = pad(G.best);
+    Sfx.over();
+    $('#over-score').textContent = score;
+    $('#over-best').textContent = G.best;
+    $('#over-cmds').textContent = `${unlocked.size}/${ALL.length}`;
+    $('#over-reason').textContent = pick(['A filler arc got you.', 'Three filler episodes in a row. Brutal.', 'Even Bloub needs a recap episode.']);
+    setTimeout(() => { if (G.state === 'over') { showEl($('#over')); $('#retry-btn').focus({ preventScroll: true }); } }, 700);
+  }
+
+  function hit(c) {
+    c.active = false; c.mesh.visible = false;
+    burst(c.x, c.h * .5, 0, ['#4a3a63', '#6a5690', PAL.warn, '#1b1429'], 16, 7);
+    G.lives--; G.hits++; G.inv = 1.3; G.vy = 7; G.onGround = false; G.jumps = 1; G.shake = .28;
+    Sfx.hit(); renderHearts(G.lives);
+    if (G.lives <= 0) gameOver();
+    else toast('Filler episode!', '−1 HP', PAL.bad, .7);
+  }
+
+  function collect(o) {
+    o.active = false; o.sprite.visible = o.halo.visible = false;
+    const cmd = CMD[o.id];
+    burst(o.x, o.y, .3, [cmd.color, PAL.ink, mix(cmd.color, PAL.ink, .5)], 18, 6);
+    G.bonus += 100; G.happy = .45; Sfx.pick();
+    award('orb'); if (cmd.bonus) award('gem');
+    if (!unlocked.has(o.id)) {
+      unlocked.add(o.id); fresh.add(o.id); saveUnlocked(); updateDeck();
+      if (cmd.bonus) { toast(`Bonus stage: ${cmd.cmd}`, cmd.line, cmd.color, 2); Sfx.fanfare(); }
+      else toast(`${cmd.cmd} unlocked`, cmd.line, cmd.color, 1.5);
+      if (unlocked.size === ALL.length) {
+        setTimeout(() => { toast(`All ${ALL.length} cleared!`, 'Now try them for real in the bot.', PAL.ok, 2.4); Sfx.fanfare(); award('full'); }, 2200);
+      }
+    }
+  }
+
+  function spawn() {
+    const ahead = camX + halfW(0) + 3;
+    while (G.nextSpawn < ahead) {
+      const x = G.nextSpawn, diff = Math.min(1, G.t / 60);
+      G.patterns++;
+      let w = 1;
+      const bonusLeft = BONUS.some(b => !unlocked.has(b.id));
+      if (G.patterns % 3 === 0 && G.t > 12 && Math.random() < (bonusLeft ? .22 : .07)) {
+        addOrb(x, 4.3, true);
+      } else if (!ryo.active && G.t > 18 && performance.now() - ryo.last > 35000 && Math.random() < .12) {
+        addRyo(x, .2, true);
+      } else if (G.patterns % 3 === 0) {
+        const r = Math.random();
+        if (r < .3) { addCrate(x, 1); addOrb(x, 3.5); }
+        else if (r < .55) addOrb(x, 4.3);
+        else addOrb(x, 1.2);
+      } else {
+        const r = Math.random();
+        if (r < .5) addCrate(x, 1);
+        else if (r < .78) addCrate(x, diff > .25 && Math.random() < .6 ? 2 : 1);
+        else { addCrate(x, 1); addCrate(x + 1, 1); w = 2; }
+      }
+      const gap = Math.max(G.speed * .85, rand(6, 10.5) - diff * 1.5);
+      G.nextSpawn = x + w + gap;
+    }
+  }
+
+  function collide() {
+    const x0 = G.x - .36, x1 = G.x + .36, y0 = G.y, y1 = G.y + .8;
+    for (const c of crates) {
+      if (!c.active) continue;
+      if (c.x + .5 < x0 || c.x - .5 > x1) continue;
+      if (y0 < c.h - .06 && y1 > 0 && G.inv <= 0) { hit(c); if (G.state !== 'playing') return; }
+    }
+    for (const o of orbs) {
+      if (!o.active) continue;
+      if (Math.abs(o.x - G.x) < .8 && Math.abs(o.y - (G.y + .4)) < .85) collect(o);
+    }
+    if (ryo.active && ryo.collectable && Math.abs(ryo.x - G.x) < .7 && G.y < 1.3) collectRyo();
+  }
+
+  function physics(dt) {
+    G.buffer = Math.max(0, G.buffer - dt);
+    G.coyote = G.onGround ? .09 : Math.max(0, G.coyote - dt);
+    if (G.buffer > 0 && G.state === 'playing') {
+      if (G.onGround || G.coyote > 0) {
+        G.vy = 14; G.onGround = false; G.coyote = 0; G.jumps = 1; G.buffer = 0; Sfx.jump(); award('hop');
+        burst(G.x - .2, .05, .4, [PAL.ink2, PAL.plum3], 5, 2);
+      } else if (G.jumps > 0) {
+        G.vy = 12; G.jumps = 0; G.buffer = 0; Sfx.jump2();
+        burst(G.x, G.y, .4, [PAL.coral3, PAL.ink], 6, 2.5);
+      }
+    }
+    if (!G.onGround) {
+      const g = (G.held && G.vy > 0) ? 30 : 42;
+      G.vy -= g * dt; G.y += G.vy * dt;
+      if (G.y <= 0) { G.y = 0; G.vy = 0; G.onGround = true; G.jumps = 2; G.land = .1; }
+    }
+  }
+
+  function update(dt, now) {
+    if (G.state === 'paused') return;
+    const target = G.state === 'playing' ? Math.min(12.5, 6.5 + G.t * .085) : G.state === 'idle' ? (REDUCE ? 0 : 3) : 0;
+    G.speed += (target - G.speed) * Math.min(1, dt * 3);
+    G.x += G.speed * dt;
+    if (G.state === 'playing') { G.t += dt; G.dist += G.speed * dt; }
+    physics(dt);
+    camX = G.x + view.W * .25;
+    if (G.state === 'playing') { spawn(); collide(); }
+    G.inv = Math.max(0, G.inv - dt); G.shake = Math.max(0, G.shake - dt);
+    G.land = Math.max(0, G.land - dt); G.happy = Math.max(0, G.happy - dt);
+
+    // world recycling and scrolling textures
+    updateRows(camX);
+    road.position.x = camX;
+    roadTop.offset.x = roadFront.offset.x = ((camX % 1) + 1) % 1;
+    field.position.x = camX;
+    fieldTex.offset.x = ((camX / 2 % 1) + 1) % 1;
+    mountains.position.x = camX;
+    mountainTex.offset.x = camX * .0006;
+
+    for (const c of crates) if (c.active && c.x < camX - halfW(0) - 3) { c.active = false; c.mesh.visible = false; }
+    for (const o of orbs) {
+      if (!o.active) continue;
+      if (o.x < camX - halfW(0) - 3) { o.active = false; o.sprite.visible = o.halo.visible = false; continue; }
+      const bob = Math.sin(now * .004 + o.phase) * .15;
+      o.sprite.position.set(o.x, o.y + bob, .3);
+      o.halo.position.set(o.x, o.y + bob, .25);
+      const pulse = 1.25 + (Math.floor(now / 120 + o.phase) % 3) * .18;
+      o.halo.scale.set(pulse, pulse, 1);
+    }
+    // Ryo: strolls past in the background on the title screen, rare pickup in play
+    if (G.state === 'idle' && !REDUCE && !ryo.active && now > ryo.nextIdle) {
+      addRyo(camX + halfW(-1) + 1, -1, false);
+      ryo.nextIdle = now + rand(20000, 34000);
+    }
+    if (ryo.active) {
+      if (ryo.x < camX - halfW(ryo.z) - 2) hideRyo();
+      else {
+        ryoMesh.position.set(ryo.x, .75 + (Math.floor(now / 260) % 2) * .04, ryo.z);
+        const map = (now % 3200) < 150 ? ryoTex[1] : ryoTex[0];
+        if (ryoMat.map !== map) ryoMat.map = map;
+      }
+    }
+
+    for (const p of parts) {
+      if (!p.active) continue;
+      p.v.y -= 22 * dt; p.mesh.position.addScaledVector(p.v, dt);
+      if (p.mesh.position.y < .08) { p.mesh.position.y = .08; p.v.y *= -.35; p.v.x *= .6; }
+      p.life -= dt; const s = Math.max(.01, p.life / p.max); p.mesh.scale.setScalar(s);
+      if (p.life <= 0) { p.active = false; p.mesh.visible = false; }
+    }
+    if (PETALS) {
+      for (let i = 0; i < PETALS; i++) {
+        const k = i * 3;
+        petalPos[k] -= (.6 + G.speed * .35) * dt;
+        petalPos[k + 1] -= (.5 + (i % 5) * .08) * dt;
+        petalPos[k + 2] += Math.sin(now * .001 + petalSeed[i]) * .2 * dt;
+        const span = halfW(petalPos[k + 2]) + 2;
+        if (petalPos[k] < camX - span || petalPos[k + 1] < 0) { petalPos[k] = camX + rand(-span, span * 1.2); petalPos[k + 1] = rand(view.camY, view.camY + view.H * .6); }
+      }
+      petalGeo.attributes.position.needsUpdate = true;
+    }
+
+    // player sprite
+    let frame;
+    if (G.state === 'over' || G.inv > .95) frame = F.hurt;
+    else if (G.happy > 0) frame = F.happy;
+    else if (!G.onGround) frame = G.vy > 1.5 ? F.up : F.fall;
+    else if (G.land > 0) frame = F.squash;
+    else if (G.speed < .3) { G.blink -= dt; if (G.blink < -.14) G.blink = rand(2, 4); frame = G.blink < 0 ? F.blink : F.idle; }
+    else { G.anim += dt * (4 + G.speed * .9); frame = F.run[Math.floor(G.anim) % 4]; }
+    if (playerMat.map !== frame) playerMat.map = frame;
+    player.position.set(G.x, G.y + PLAYER_SIZE / 2 - .15, .35);
+    player.visible = !(G.state === 'playing' && G.inv > 0 && Math.floor(G.inv * 14) % 2 === 0);
+    const sh = Math.max(.35, 1 - G.y * .18);
+    shadow.position.x = G.x; shadow.scale.set(sh, sh, 1);
+
+    // HUD score
+    if (G.state === 'playing') {
+      const score = scoreNow();
+      if (score !== G.lastScore) {
+        G.lastScore = score; $('#hud-score').textContent = pad(score);
+        if (score >= 3000) award('score');
+        if (score >= 1500 && !G.hits) award('nohit');
+      }
+    }
+  }
+
+  let flickerT = 0;
+  function flicker(dt) {
+    flickerT -= dt; if (flickerT > 0) return; flickerT = .2;
+    const b = pick(buildings), w = pick(b.windows); if (!w) return;
+    w.lit = !w.lit;
+    px(b.g, w.x, w.y, w.lit ? w.col : '#120d1c', 2, 2);
+    px(b.ge, w.x, w.y, w.lit ? w.col : '#000', 2, 2);
+    b.map.needsUpdate = b.emap.needsUpdate = true;
+  }
+
+  function render() {
+    const shakeX = G.shake > 0 ? rand(-.12, .12) : 0, shakeY = G.shake > 0 ? rand(-.1, .1) : 0;
+    const cy = view.camY + lift * view.H * .35;
+    camera.position.set(camX + shakeX, cy + shakeY, view.d);
+    camera.lookAt(camX + shakeX, cy + shakeY + lift * view.H * .9, 0);
+    const Dsky = view.d - sky.position.z;
+    sky.position.set(camX, cy, sky.position.z);
+    const Dmoon = view.d - moon.position.z;
+    moon.position.set(camX + view.W * .3 * Dmoon / view.d, cy + view.H * .3 * Dmoon / view.d, moon.position.z);
+    renderer.render(scene, camera);
+  }
+
+  // main loop
+  let last = performance.now(), running = true;
+  function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (!running || document.hidden) return;
+    update(dt, now);
+    if (!REDUCE || G.state !== 'idle') flicker(dt);
+    render();
+  }
+  requestAnimationFrame(loop);
+
+  return {
+    G,
+    start, pause, resume,
+    press() {
+      Sfx.unlock();
+      if (G.state === 'idle' || G.state === 'over') start();
+      else if (G.state === 'paused') resume();
+      else if (G.state === 'playing') { G.buffer = .12; G.held = true; }
+    },
+    release() { G.held = false; },
+    setRunning(v) { running = v; if (!v) pause(); },
+    setLift(v) { lift = v; },
+    // Konami code: 2x score for the current run (or the next one), and Ryo strolls through.
+    cheat() {
+      const inRun = G.state === 'playing' || G.state === 'paused';
+      if (inRun) G.cheat = true; else G.armed = true;
+      if (!ryo.active) addRyo(camX + halfW(-1) + 1, -1, false);
+      return inRun;
+    }
+  };
+}
+
+/* =====================================================================
+   Input
+   ===================================================================== */
+let heroInView = true;
+const isInteractive = (el) => el && el.closest && el.closest('a, button, input, textarea, select, [contenteditable]');
+
+function bindGameInput() {
+  addEventListener('keydown', (e) => {
+    // ↑ only jumps mid-run, so typing the Konami code on the title screen doesn't start a game.
+    const jumpKey = e.code === 'Space' || e.code === 'KeyW' || (e.code === 'ArrowUp' && game.G.state === 'playing');
+    if (jumpKey) {
+      if (isInteractive(e.target)) return;
+      if (!heroInView && game.G.state !== 'playing') return;
+      e.preventDefault();
+      if (e.repeat) return;
+      game.press();
+    } else if (e.code === 'KeyP' || (e.code === 'Escape' && game.G.state === 'playing')) {
+      if (game.G.state === 'playing') game.pause(); else if (game.G.state === 'paused') game.resume();
+    } else if (e.code === 'KeyM' && !isInteractive(e.target)) {
+      Sfx.toggle(); syncSoundBtn();
+    }
+  });
+  addEventListener('keyup', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') game.release(); });
+
+  hero.addEventListener('pointerdown', (e) => {
+    if (e.button > 0 || isInteractive(e.target) || e.target.closest('[data-no-jump], .overlay')) return;
+    game.press();
+  });
+  addEventListener('pointerup', () => game.release());
+  addEventListener('pointercancel', () => game.release());
+
+  $('#play-btn').addEventListener('click', () => game.start());
+  $('#retry-btn').addEventListener('click', () => game.start());
+  $('#resume-btn').addEventListener('click', () => game.resume());
+  $('#pause-btn').addEventListener('click', () => { if (game.G.state === 'playing') game.pause(); else game.resume(); });
+
+  new IntersectionObserver((entries) => {
+    entries.forEach(en => {
+      heroInView = en.intersectionRatio > .45;
+      game.setRunning(en.isIntersecting);
+      if (!heroInView && game.G.state === 'playing') game.pause();
+    });
+  }, { threshold: [0, .45, 1] }).observe(hero);
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden) game.pause(); });
+}
+
+/* =====================================================================
+   Motion: GSAP intro, scroll, reveals
+   ===================================================================== */
+const nav = $('#nav');
+const onScroll = () => nav.classList.toggle('is-solid', scrollY > 40);
+addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+function typeInto(el) {
+  if (el.dataset.typed) return; el.dataset.typed = '1';
+  const html = el.innerHTML;
+  const full = el.textContent;
+  const sr = document.createElement('span'); sr.className = 'sr-only'; sr.textContent = full;
+  const vis = document.createElement('span'); vis.setAttribute('aria-hidden', 'true');
+  const caret = document.createElement('span'); caret.className = 'caret'; caret.setAttribute('aria-hidden', 'true');
+  el.innerHTML = ''; el.append(sr, vis, caret);
+  // Type through the text while preserving <code> tags.
+  const tmp = document.createElement('div'); tmp.innerHTML = html;
+  const tokens = [];
+  tmp.childNodes.forEach(n => {
+    if (n.nodeType === 3) [...n.textContent].forEach(ch => tokens.push({ ch }));
+    else [...n.textContent].forEach((ch, i, a) => tokens.push({ ch, tag: n.tagName.toLowerCase(), start: i === 0, end: i === a.length - 1 }));
+  });
+  const state = { n: 0 };
+  gsap.to(state, {
+    n: tokens.length, duration: tokens.length * .022, ease: 'none',
+    onUpdate() {
+      const n = Math.floor(state.n); let out = '', open = false;
+      for (let i = 0; i < n; i++) {
+        const t = tokens[i], ch = t.ch.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        if (t.tag && !open) { out += `<${t.tag}>`; open = true; }
+        if (!t.tag && open) { out += `</code>`; open = false; }
+        out += ch;
+      }
+      if (open) out += '</code>';
+      vis.innerHTML = out;
+    },
+    onComplete() { vis.innerHTML = html; caret.remove(); }
+  });
+}
+
+if (HAS_GSAP && !REDUCE) {
+  // Title: letters drop in frame-by-frame
+  $$('.title .l1, .title .l2').forEach(line => {
+    const txt = line.textContent; line.textContent = '';
+    [...txt].forEach(ch => { const s = document.createElement('span'); s.className = 'ch'; s.textContent = ch; line.appendChild(s); });
+  });
+  gsap.timeline({ delay: .15 })
+    .from('.eyebrow', { autoAlpha: 0, x: -16, duration: .3, ease: 'steps(3)' })
+    .from('.title .ch', { y: -60, autoAlpha: 0, duration: .36, ease: 'steps(4)', stagger: .05 }, '-=.05')
+    .from('.tagline', { autoAlpha: 0, y: 12, duration: .3, ease: 'steps(3)' }, '-=.1')
+    .from('.actions > *', { autoAlpha: 0, y: 12, duration: .3, ease: 'steps(3)', stagger: .08 }, '-=.1')
+    .from('.hint, .press', { autoAlpha: 0, duration: .3, ease: 'steps(2)' }, '-=.1');
+
+  if (window.ScrollTrigger) {
+    gsap.to('#xp', { scaleX: 1, ease: 'none', scrollTrigger: { start: 0, end: 'max', scrub: .3 } });
+
+    ScrollTrigger.create({
+      trigger: hero, start: 'top top', end: 'bottom top', scrub: true,
+      onUpdate: (self) => { if (game) game.setLift(self.progress); }
+    });
+    gsap.to(heroCopy, { yPercent: -18, ease: 'none', scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: true } });
+
+    $$('.reveal').forEach(el => gsap.from(el, {
+      autoAlpha: 0, y: 28, duration: .5, ease: 'steps(4)',
+      scrollTrigger: { trigger: el, start: 'top 88%', once: true }
+    }));
+
+    // Headings: letters rise into place frame-by-frame, scrubbed to scroll.
+    $$('[data-split]').forEach(h => {
+      const words = h.textContent.trim().split(/\s+/);
+      h.setAttribute('aria-label', words.join(' '));
+      h.textContent = '';
+      words.forEach((w, i) => {
+        const wd = document.createElement('span'); wd.className = 'wd'; wd.setAttribute('aria-hidden', 'true');
+        [...w].forEach(ch => { const s = document.createElement('span'); s.className = 'ch'; s.textContent = ch; wd.appendChild(s); });
+        h.appendChild(wd);
+        if (i < words.length - 1) h.appendChild(document.createTextNode(' '));
+      });
+      gsap.fromTo($$('.ch', h), { yPercent: 110, autoAlpha: 0, rotate: 14 }, {
+        yPercent: 0, autoAlpha: 1, rotate: 0, ease: 'steps(3)', stagger: .04,
+        scrollTrigger: { trigger: h, start: 'top 92%', end: 'top 60%', scrub: .6 }
+      });
+    });
+
+    // Lead copy: words light up as you read down.
+    $$('[data-words]').forEach(p => {
+      const walk = (node) => [...node.childNodes].forEach(n => {
+        if (n.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          n.textContent.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+            const s = document.createElement('span'); s.className = 'wd'; s.textContent = part; frag.appendChild(s);
+          });
+          n.replaceWith(frag);
+        } else if (n.nodeType === 1 && n.tagName !== 'CODE') walk(n);
+      });
+      walk(p);
+      gsap.fromTo($$('.wd', p), { opacity: .18 }, {
+        opacity: 1, ease: 'none', stagger: .1,
+        scrollTrigger: { trigger: p, start: 'top 85%', end: 'bottom 55%', scrub: true }
+      });
+    });
+
+    // Kickers decode like a game terminal.
+    const GLYPHS = '#%&*+=<>/?!01XYZ';
+    $$('[data-scramble]').forEach(el => {
+      const txt = el.textContent;
+      ScrollTrigger.create({ trigger: el, start: 'top 90%', once: true, onEnter: () => {
+        const o = { p: 0 };
+        gsap.to(o, { p: 1, duration: .7, ease: 'steps(14)', onUpdate: () => {
+          const n = Math.floor(o.p * txt.length);
+          el.textContent = txt.slice(0, n) + [...txt.slice(n)].map(c => c === ' ' ? ' ' : pick(GLYPHS)).join('');
+        }, onComplete: () => { el.textContent = txt; } });
+      } });
+    });
+
+    // Giant outlined kana drift sideways behind each section.
+    $$('.ghost').forEach(el => gsap.fromTo(el, { xPercent: 8 }, {
+      xPercent: -45, ease: 'none',
+      scrollTrigger: { trigger: el.parentElement, start: 'top bottom', end: 'bottom top', scrub: true }
+    }));
+
+    // Noren panels sway, and swing harder while you scroll.
+    const noren = $$('.noren span');
+    const sway = noren.map((p, i) => gsap.fromTo(p, { rotate: -1.5 }, { rotate: 1.5, duration: 1.6 + i * .15, ease: 'sine.inOut', yoyo: true, repeat: -1, paused: true }));
+    // Wind: every few seconds a gust streaks across, carries petals, and blows the panels sideways.
+    const windLayer = $('.wind'), cont = $('#start');
+    const ship = $('.airship'), banner = $('.airship .banner');
+    gsap.set(ship, { left: 0, right: 'auto' });   // static right-side placement stays for reduced motion
+    const bits = [...Array(9)].map((_, i) => {
+      const b = document.createElement('i'); b.className = 'gust' + (i > 5 ? ' petal' : '');
+      windLayer.appendChild(b); return b;
+    });
+    function gust() {
+      const W = cont.clientWidth, force = rand(9, 18);
+      bits.forEach(b => {
+        const petal = b.classList.contains('petal'), y = rand(20, 260);
+        if (!petal) b.style.width = Math.round(rand(40, 140) / 4) * 4 + 'px';
+        const d = rand(.7, 1.3), peak = petal ? 1 : .5;
+        gsap.timeline({ delay: rand(0, .35) })
+          .fromTo(b, { x: -160, y, rotate: 0 }, { x: W + 160, y: y + (petal ? rand(-30, 60) : 0), rotate: petal ? rand(180, 540) : 0, duration: d, ease: 'none' }, 0)
+          .fromTo(b, { autoAlpha: 0 }, { autoAlpha: peak, duration: d * .2, ease: 'none' }, 0)
+          .to(b, { autoAlpha: 0, duration: d * .25, ease: 'none' }, d * .75);
+      });
+      gsap.timeline()
+        .to(ship, { rotate: -force / 3, duration: .4, ease: 'power2.out' }, .25)
+        .to(banner, { skewY: force / 2, duration: .3, ease: 'power2.out' }, .25)
+        .to(ship, { rotate: 0, duration: 2, ease: 'elastic.out(1, .35)' }, .65)
+        .to(banner, { skewY: 0, duration: 1.6, ease: 'elastic.out(1, .3)' }, .55)
+        .to(noren, { skewX: force, scaleY: .94, duration: .35, ease: 'power2.out', stagger: .06 }, .15)
+        .to(noren, { skewX: 0, scaleY: 1, duration: 1.8, ease: 'elastic.out(1, .3)', stagger: .06 });
+    }
+    let gustCall = null;
+    const loopGust = () => { gust(); gustCall = gsap.delayedCall(rand(3.5, 6.5), loopGust); };
+
+    // Airship: slow right-to-left crossing behind the copy, gentle bob, spinning propeller.
+    const flight = gsap.timeline({ repeat: -1, paused: true })
+      .fromTo(ship, { x: () => cont.clientWidth + 40 }, { x: () => -ship.offsetWidth - 60, duration: 42, ease: 'none' });
+    const bob = gsap.to(ship, { y: -8, duration: 2.2, ease: 'sine.inOut', yoyo: true, repeat: -1, paused: true });
+    let prop = null, pf = 0;
+
+    // Starfighter: weaves over the grid, banks into each turn, fires bolts toward the vanishing point.
+    const fighter = $('.fighter');
+    gsap.set(fighter, { x: 0, xPercent: -50 });
+    const fl = { v: 0 }; let lastX = 0;
+    const weave = gsap.to(fl, { v: Math.PI * 2, duration: 9, ease: 'none', repeat: -1, paused: true, onUpdate: () => {
+      const range = Math.min(cont.clientWidth * .34, 420);
+      const x = Math.sin(fl.v) * range, y = Math.sin(fl.v * 2) * 10;
+      const bank = gsap.utils.clamp(-18, 18, (x - lastX) * 6); lastX = x;
+      gsap.set(fighter, { x, y, rotate: bank });
+    } });
+    function fire() {
+      const cr = cont.getBoundingClientRect(), fr = fighterCanvas.getBoundingClientRect(), s = fr.width / 48;
+      const vx = cr.width / 2, vy = cr.height * .5;
+      [[4, 3], [44, 3]].forEach(([tx, ty]) => {   // upper wingtip cannons
+        const b = document.createElement('i'); b.className = 'bolt'; b.setAttribute('aria-hidden', 'true'); cont.appendChild(b);
+        const x0 = fr.left - cr.left + tx * s, y0 = fr.top - cr.top + ty * s;
+        const tx1 = vx + (x0 - vx) * .15;
+        gsap.timeline({ onComplete: () => b.remove() })
+          .set(b, { x: x0, y: y0, autoAlpha: 1, scale: 1, rotate: Math.atan2(tx1 - x0, y0 - vy) * 180 / Math.PI })
+          .to(b, { x: tx1, y: vy, scale: .25, duration: .55, ease: 'power1.in' })
+          .to(b, { autoAlpha: 0, duration: .1 }, '-=.1');
+      });
+    }
+    let engine = null, ef = 0, fireCall = null;
+    const loopFire = () => { fire(); fireCall = gsap.delayedCall(rand(1.2, 2.8), loopFire); };
+
+    ScrollTrigger.create({
+      trigger: cont, start: 'top 80%', end: 'bottom top',
+      onToggle: (self) => {
+        if (gustCall) gustCall.kill();
+        if (fireCall) fireCall.kill();
+        gustCall = self.isActive ? gsap.delayedCall(.6, loopGust) : null;
+        fireCall = self.isActive ? gsap.delayedCall(1.5, loopFire) : null;
+        clearInterval(prop); clearInterval(engine);
+        if (self.isActive) {
+          flight.play(); bob.play(); weave.play(); sway.forEach(t => t.play());
+          prop = setInterval(() => paintAirship(pf ^= 1), 90);
+          engine = setInterval(() => paintFighter(ef ^= 1), 70);
+        } else { flight.pause(); bob.pause(); weave.pause(); sway.forEach(t => t.pause()); }
+      }
+    });
+
+    ScrollTrigger.create({
+      trigger: '#start', start: 'top bottom', end: 'bottom top',
+      onUpdate: (self) => {
+        const k = gsap.utils.clamp(-10, 10, self.getVelocity() / 300);
+        gsap.to(noren, { skewX: k, duration: .2, overwrite: 'auto', stagger: .03,
+          onComplete: () => gsap.to(noren, { skewX: 0, duration: 1.2, ease: 'elastic.out(1, .4)' }) });
+      }
+    });
+
+    // Speed lines rush toward you while the section passes.
+    gsap.fromTo('.how .speed', { scale: 1 }, {
+      scale: 1.3, rotate: 4, ease: 'none',
+      scrollTrigger: { trigger: '#how', start: 'top bottom', end: 'bottom top', scrub: true }
+    });
+
+    // Marquee bands: constant drift, kicked by scroll speed, direction follows scroll.
+    $$('.marquee').forEach(m => {
+      const track = $('.marquee-track', m), rev = m.dataset.dir === 'r';
+      const tw = gsap.fromTo(track, { xPercent: rev ? -50 : 0 }, { xPercent: rev ? 0 : -50, duration: 26, ease: 'none', repeat: -1 });
+      tw.totalTime(tw.duration() * 50);   // headroom so a negative timeScale can run backwards
+      ScrollTrigger.create({
+        trigger: m, start: 'top bottom', end: 'bottom top',
+        onToggle: (self) => { if (self.isActive) tw.resume(); else tw.pause(); },
+        onUpdate: (self) => {
+          const dir = self.direction, boost = Math.min(Math.abs(self.getVelocity()) / 250, 6);
+          gsap.to(tw, { timeScale: dir * (1 + boost), duration: .15, overwrite: true,
+            onComplete: () => gsap.to(tw, { timeScale: dir, duration: .9, ease: 'power2.out' }) });
+        }
+      });
+    });
+
+    gsap.set('#cards .card', { autoAlpha: 0, y: 36 });
+    ScrollTrigger.batch('#cards .card', {
+      start: 'top 90%', once: true,
+      onEnter: (batch) => {
+        gsap.to(batch, { autoAlpha: 1, y: 0, duration: .45, ease: 'steps(4)', stagger: .07 });
+        batch.forEach(card => {
+          if (fresh.has(card.dataset.id)) {
+            fresh.delete(card.dataset.id);
+            gsap.fromTo($('.stamp', card), { scale: 2.4, autoAlpha: 0 }, { scale: 1, autoAlpha: .9, duration: .3, ease: 'steps(3)', delay: .5 });
+          }
+        });
+      }
+    });
+    // Cards cleared after the batch fired: stamp them when the deck comes back into view.
+    ScrollTrigger.create({
+      trigger: '#commands', start: 'top 60%',
+      onEnter: stampFresh, onEnterBack: stampFresh
+    });
+
+    $$('[data-type]').forEach(el => ScrollTrigger.create({ trigger: el, start: 'top 85%', once: true, onEnter: () => typeInto(el) }));
+
+    // Phone demo: /manga one piece -> source picker -> tap MangaFire -> chapter PDF
+    const msgs = $$('#chat > *'), src = $$('#kb span')[0];
+    gsap.set(msgs, { autoAlpha: 0, y: 12 });
+    const chatTl = gsap.timeline({ repeat: -1, repeatDelay: 1.6, paused: true })
+      .to(msgs[0], { autoAlpha: 1, y: 0, duration: .25, ease: 'steps(3)' }, .4)
+      .to(msgs[1], { autoAlpha: 1, y: 0, duration: .25, ease: 'steps(3)' }, 1.3)
+      .to(msgs[2], { autoAlpha: 1, y: 0, duration: .25, ease: 'steps(3)' }, 1.6)
+      .call(() => src.classList.add('tap'), null, 2.9)
+      .call(() => src.classList.remove('tap'), null, 3.2)
+      .to(msgs[3], { autoAlpha: 1, y: 0, duration: .25, ease: 'steps(3)' }, 3.4)
+      .to(msgs[4], { autoAlpha: 1, y: 0, duration: .25, ease: 'steps(3)' }, 4.8)
+      .to(msgs, { autoAlpha: 0, duration: .2, ease: 'steps(2)' }, 8)
+      .set(msgs, { y: 12 });
+    ScrollTrigger.create({ trigger: '#chat', start: 'top 85%', end: 'bottom top', onToggle: (s) => s.isActive ? chatTl.play() : chatTl.pause() });
+
+    // Continue? countdown
+    const countEl = $('#count');
+    const countTl = gsap.timeline({ repeat: -1, paused: true });
+    for (let n = 9; n >= 0; n--) {
+      countTl.call(() => { countEl.textContent = n; })
+        .fromTo(countEl, { scale: 1.35 }, { scale: 1, duration: .24, ease: 'steps(3)' })
+        .to({}, { duration: .76 });
+    }
+    ScrollTrigger.create({ trigger: '#start', start: 'top 80%', end: 'bottom top', onToggle: (s) => s.isActive ? countTl.play() : countTl.pause() });
+  }
+} else {
+  // Reduced motion or no GSAP: static, fully readable page.
+  $$('#cards .card.is-cleared .stamp').forEach(s => { s.style.opacity = .9; });
+}
+
+function stampFresh() {
+  if (!HAS_GSAP || REDUCE) return;
+  cards.forEach(card => {
+    if (!fresh.has(card.dataset.id)) return;
+    fresh.delete(card.dataset.id);
+    gsap.fromTo($('.stamp', card), { scale: 2.4, autoAlpha: 0 }, { scale: 1, autoAlpha: .9, duration: .3, ease: 'steps(3)', delay: .3 });
+  });
+}
+</script>
+</body>
+</html>
